@@ -1,0 +1,48 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isValidImage() {
+      return request.resource.contentType.matches('image/.*') &&
+             request.resource.size < 5 * 1024 * 1024; // 5MB max
+    }
+    
+    // Avatars - users can upload their own
+    match /avatars/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() && 
+                   fileName.matches(request.auth.uid + '.*') && 
+                   isValidImage();
+    }
+    
+    // School logos - admin only (use Admin SDK on server)
+    match /schools/{schoolId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isValidImage();
+    }
+    
+    // Team logos - authenticated users can upload
+    match /teams/{teamId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isValidImage();
+    }
+    
+    // Post images - admin only (but allow authenticated for now)
+    match /posts/{postId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isValidImage();
+    }
+    
+    // Tournament banners - admin only (but allow authenticated for now)
+    match /tournaments/{tournamentId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isValidImage();
+    }
+  }
+}
