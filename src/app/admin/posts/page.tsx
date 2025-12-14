@@ -17,9 +17,11 @@ import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import { getPosts, deletePost, getUser } from '@/lib/firebase/db';
-import { GAMES, type Post, type User } from '@/types';
+import { type Post, type User } from '@/types';
+import { useGames } from '@/hooks/useGames';
 
 export default function AdminPostsPage() {
+  const { getGameInfo } = useGames();
   const [posts, setPosts] = useState<Post[]>([]);
   const [authors, setAuthors] = useState<Record<string, User>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -102,7 +104,7 @@ export default function AdminPostsPage() {
         <div className="space-y-4">
           {posts.map((post, index) => {
             const author = authors[post.createdBy];
-            const game = post.game ? GAMES.find((g) => g.id === post.game) : null;
+            const game = post.game ? getGameInfo(post.game) : null;
 
             return (
               <motion.div

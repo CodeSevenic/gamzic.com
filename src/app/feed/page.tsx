@@ -11,11 +11,22 @@ import { PageLoader } from '@/components/ui/LoadingSpinner';
 import { useAuthStore } from '@/store/authStore';
 import { getPosts, getUser, reactToPost } from '@/lib/firebase/db';
 import { formatDistanceToNow } from 'date-fns';
-import { GAMES, REACTION_EMOJIS, type Post, type User, type ReactionType } from '@/types';
+import { REACTION_EMOJIS, type Post, type User, type ReactionType, type AccountType } from '@/types';
+
+const ACCOUNT_TYPE_BADGES: Record<AccountType | 'admin', { label: string; variant: 'purple' | 'info' | 'success' | 'warning' }> = {
+  player: { label: '', variant: 'purple' },
+  admin: { label: 'Admin', variant: 'purple' },
+  business: { label: 'Business', variant: 'info' },
+  sponsor: { label: 'Sponsor', variant: 'success' },
+  organization: { label: 'Organization', variant: 'warning' },
+};
 import { PostComments } from '@/components/feed/PostComments';
+import { useGames } from '@/hooks/useGames';
+import Link from 'next/link';
 
 export default function FeedPage() {
   const { user } = useAuthStore();
+  const { games, gameOptions, getGameInfo } = useGames();
   const [posts, setPosts] = useState<Post[]>([]);
   const [authors, setAuthors] = useState<Record<string, User>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -36,8 +47,8 @@ export default function FeedPage() {
         const { posts: fetchedPosts } = await getPosts(filters);
         setPosts(fetchedPosts);
 
-        // Fetch authors
-        const authorIds = [...new Set(fetchedPosts.map((p) => p.createdBy))];
+        // Fetch authors (use authorId if set, otherwise createdBy)
+        const authorIds = [...new Set(fetchedPosts.map((p) => p.authorId || p.createdBy))];
         const authorPromises = authorIds.map((id) => getUser(id));
         const authorResults = await Promise.all(authorPromises);
         
@@ -110,9 +121,9 @@ export default function FeedPage() {
           >
             <option value="all">All Posts</option>
             <option value="school">My School</option>
-            {GAMES.map((game) => (
-              <option key={game.id} value={game.id}>
-                {game.icon} {game.name}
+            {gameOptions.map((game) => (
+              <option key={game.value} value={game.value}>
+                {game.label}
               </option>
             ))}
           </select>
@@ -127,8 +138,14 @@ export default function FeedPage() {
       ) : (
         <div className="space-y-4">
           {posts.map((post, index) => {
-            const author = authors[post.createdBy];
+            // Use authorId if set, otherwise fall back to createdBy
+            const authorId = post.authorId || post.createdBy;
+            const author = authors[authorId];
             const userReaction = post.reactions.find((r) => r.userId === user?.id);
+            
+            // Determine badge to show
+            const badgeType = post.authorType || (author?.accountType !== 'player' ? author?.accountType : 'admin');
+            const badgeInfo = ACCOUNT_TYPE_BADGES[badgeType || 'admin'];
 
             return (
               <motion.div
@@ -140,25 +157,50 @@ export default function FeedPage() {
                 <Card variant="default" padding="none" className="overflow-hidden">
                   {/* Post Header */}
                   <div className="p-4 flex items-center gap-3">
-                    <Avatar
-                      src={author?.avatar}
-                      alt={author?.displayName || 'Admin'}
-                      size="md"
-                    />
+                    {author ? (
+                      <Link href={`/users/${author.id}`} className="shrink-0">
+                        <Avatar
+                          src={author.avatar}
+                          alt={author.displayName}
+                          size="md"
+                          className="cursor-pointer"
+                        />
+                      </Link>
+                    ) : (
+                      <Avatar
+                        src={undefined}
+                        alt="Admin"
+                        size="md"
+                      />
+                    )}
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-white">
-                          {author?.displayName || 'Admin'}
-                        </span>
-                        <Badge variant="purple" size="sm">Admin</Badge>
+                        {author ? (
+                          <Link 
+                            href={`/users/${author.id}`}
+                            className="font-semibold text-white hover:text-cyan-400 transition-colors"
+                          >
+                            {author.displayName}
+                          </Link>
+                        ) : (
+                          <span className="font-semibold text-white">Admin</span>
+                        )}
+                        {badgeInfo.label && (
+                          <Badge variant={badgeInfo.variant} size="sm">
+                            {author?.isVerified && '✓ '}{badgeInfo.label}
+                          </Badge>
+                        )}
                       </div>
+                      {author?.businessInfo?.companyName && (
+                        <p className="text-xs text-cyan-400">{author.businessInfo.companyName}</p>
+                      )}
                       <p className="text-sm text-dark-400">
                         {formatDistanceToNow(post.createdAt, { addSuffix: true })}
                       </p>
                     </div>
                     {post.game && (
                       <Badge variant="info" size="sm">
-                        {GAMES.find((g) => g.id === post.game)?.name || post.game}
+                        {getGameInfo(post.game).name}
                       </Badge>
                     )}
                   </div>

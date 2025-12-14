@@ -1,6 +1,9 @@
 // User Types
 export type UserRole = 'player' | 'moderator' | 'admin' | 'super_admin';
 
+// Account types for different kinds of profiles
+export type AccountType = 'player' | 'business' | 'sponsor' | 'organization';
+
 // Role hierarchy for permission checking
 export const ROLE_HIERARCHY: Record<UserRole, number> = {
   player: 0,
@@ -12,6 +15,21 @@ export const ROLE_HIERARCHY: Record<UserRole, number> = {
 export const hasPermission = (userRole: UserRole, requiredRole: UserRole): boolean => {
   return ROLE_HIERARCHY[userRole] >= ROLE_HIERARCHY[requiredRole];
 };
+
+// Business/Sponsor profile info
+export interface BusinessInfo {
+  companyName?: string;
+  website?: string;
+  industry?: string;
+  description?: string;
+  contactEmail?: string;
+  socialLinks?: {
+    twitter?: string;
+    instagram?: string;
+    linkedin?: string;
+    discord?: string;
+  };
+}
 
 export interface GameTags {
   valorant?: string;
@@ -50,6 +68,13 @@ export interface User {
   role: UserRole;
   badges: string[];
   isOnboarded: boolean;
+  // Account type support for business/sponsor profiles
+  accountType: AccountType;
+  businessInfo?: BusinessInfo;
+  // User IDs who can manage this account (for sponsors/businesses managed by admins)
+  managedBy?: string[];
+  // Verification status for business accounts
+  isVerified?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -108,6 +133,8 @@ export interface Tournament {
   bracketId?: string;
   createdBy: string;
   status: TournamentStatus;
+  // Sponsor support
+  sponsors?: string[]; // Array of sponsor/business user IDs
   createdAt: Date;
   updatedAt: Date;
 }
@@ -134,6 +161,53 @@ export interface Bracket {
   updatedAt: Date;
 }
 
+// Standalone Match Types (non-tournament matches)
+export type MatchType = 'friendly' | 'scrimmage' | 'ranked' | 'casual';
+export type MatchStatus = 'open' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+
+export interface MatchParticipant {
+  oduserId?: string;
+  teamId?: string;
+  name: string;
+  joinedAt: Date;
+}
+
+export interface Match {
+  id: string;
+  title: string;
+  description?: string;
+  game: string;
+  type: MatchType;
+  status: MatchStatus;
+  // Participants join the match (instead of being manually added)
+  isTeamMatch: boolean;
+  maxParticipants: number; // Any number - flexible like tournaments
+  participants: MatchParticipant[];
+  // Scores (indexed by oduserId or teamId)
+  scores?: Record<string, number>;
+  winnerId?: string;
+  // Enhanced features (like tournaments)
+  bannerImage?: string;
+  rules?: string;
+  prizeDescription?: string;
+  registrationDeadline?: Date;
+  // Optional associations
+  schoolId?: string;
+  tournamentId?: string; // If part of a tournament
+  // Scheduling
+  scheduledTime?: Date;
+  completedAt?: Date;
+  // Stream/spectate info
+  streamUrl?: string;
+  isPublic: boolean;
+  // Sponsor support
+  sponsors?: string[]; // Array of sponsor/business user IDs
+  // Meta
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Post Types
 export type ReactionType = 'like' | 'gg' | 'fire' | 'wow';
 
@@ -149,7 +223,13 @@ export interface Post {
   imageUrl?: string;
   videoUrl?: string;
   youtubeVideoId?: string;
+  // Who actually created the post (the admin who made it)
   createdBy: string;
+  // Who the post appears to be from (can be different from createdBy for "post as" feature)
+  // If not set, defaults to createdBy
+  authorId?: string;
+  // Type of account the author is (for display purposes)
+  authorType?: AccountType;
   schoolId?: string;
   tournamentId?: string;
   game?: string;
@@ -196,8 +276,19 @@ export interface Notification {
   createdAt: Date;
 }
 
-// Constants
-export const GAMES = [
+// Game Type (dynamic - stored in Firestore)
+export interface Game {
+  id: string;
+  name: string;
+  icon: string;
+  description?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Default games (used for seeding, admin can modify)
+export const DEFAULT_GAMES = [
   { id: 'valorant', name: 'Valorant', icon: '🎯' },
   { id: 'fifa', name: 'EA FC / FIFA', icon: '⚽' },
   { id: 'fortnite', name: 'Fortnite', icon: '🏗️' },
@@ -207,6 +298,9 @@ export const GAMES = [
   { id: 'overwatch', name: 'Overwatch 2', icon: '🦸' },
   { id: 'callOfDuty', name: 'Call of Duty', icon: '🔫' },
 ] as const;
+
+// Legacy constant for backward compatibility
+export const GAMES = DEFAULT_GAMES;
 
 export const REACTION_EMOJIS: Record<ReactionType, string> = {
   like: '👍',

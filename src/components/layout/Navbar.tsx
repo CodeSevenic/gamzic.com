@@ -4,20 +4,18 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
-import {
-  Bars3Icon,
-  BellIcon,
-  MagnifyingGlassIcon,
-} from '@heroicons/react/24/outline';
+import { Bars3Icon, MagnifyingGlassIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
 import { Avatar } from '@/components/ui/Avatar';
+import { NotificationDropdown } from '@/components/layout/NotificationDropdown';
 import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
+import { hasPermission } from '@/types';
 
 export function Navbar() {
   const pathname = usePathname();
   const { user, loading } = useAuthStore();
   const { toggleMobileMenu } = useUIStore();
-  
+
   const isAuthPage = pathname?.startsWith('/auth');
 
   if (isAuthPage) return null;
@@ -33,29 +31,21 @@ export function Navbar() {
           >
             <Bars3Icon className="w-6 h-6" />
           </button>
-          
+
           <Link href="/">
-            <motion.div
-              whileHover={{ scale: 1.02 }}
-              transition={{ duration: 0.2 }}
-            >
+            <motion.div whileHover={{ scale: 1.02 }} transition={{ duration: 0.2 }}>
               {/* Full logo on desktop */}
               <div className="hidden sm:block relative w-36 h-10">
                 <Image
                   src="/gamzic-logo.svg"
                   alt="Gamzic"
                   fill
-                  className="object-contain object-left"
+                  className="object-contain object-left max-w-[120px]"
                 />
               </div>
               {/* Icon only on mobile */}
               <div className="sm:hidden relative w-10 h-10">
-                <Image
-                  src="/gamzic-icon.svg"
-                  alt="Gamzic"
-                  fill
-                  className="object-contain"
-                />
+                <Image src="/gamzic-icon.svg" alt="Gamzic" fill className="object-contain" />
               </div>
             </motion.div>
           </Link>
@@ -80,17 +70,22 @@ export function Navbar() {
             <div className="w-8 h-8 rounded-full bg-dark-800 animate-pulse" />
           ) : user ? (
             <>
-              <button className="relative p-2 rounded-lg text-dark-400 hover:text-white hover:bg-dark-800 transition-colors">
-                <BellIcon className="w-6 h-6" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-cyan-500 rounded-full" />
-              </button>
-              
+              {/* Admin Toggle - Show for moderator role and above */}
+              {hasPermission(user.role, 'moderator') && (
+                <Link
+                  href="/admin"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/30 text-orange-400 hover:from-orange-500/30 hover:to-red-500/30 transition-all"
+                  title="Open Admin Panel"
+                >
+                  <ShieldCheckIcon className="w-4 h-4" />
+                  <span className="hidden sm:inline text-xs font-medium">Admin</span>
+                </Link>
+              )}
+
+              <NotificationDropdown />
+
               <Link href="/profile" className="flex items-center gap-2">
-                <Avatar
-                  src={user.avatar}
-                  alt={user.displayName}
-                  size="sm"
-                />
+                <Avatar src={user.avatar} alt={user.displayName} size="sm" />
                 <span className="hidden sm:block text-sm font-medium text-white">
                   {user.displayName}
                 </span>
@@ -117,4 +112,3 @@ export function Navbar() {
     </nav>
   );
 }
-

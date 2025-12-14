@@ -10,6 +10,7 @@ import { useAuthStore } from '@/store/authStore';
 import { getComments, createComment, reportComment, getUser } from '@/lib/firebase/db';
 import { formatDistanceToNow } from 'date-fns';
 import type { Comment, User } from '@/types';
+import Link from 'next/link';
 
 interface PostCommentsProps {
   postId: string;
@@ -148,16 +149,34 @@ export function PostComments({ postId }: PostCommentsProps) {
                 transition={{ delay: index * 0.05 }}
                 className="flex items-start gap-3 group"
               >
-                <Avatar
-                  src={author?.avatar}
-                  alt={author?.displayName || 'User'}
-                  size="sm"
-                />
+                {author ? (
+                  <Link href={`/users/${author.id}`} className="shrink-0">
+                    <Avatar
+                      src={author.avatar}
+                      alt={author.displayName}
+                      size="sm"
+                      className="cursor-pointer"
+                    />
+                  </Link>
+                ) : (
+                  <Avatar
+                    src={undefined}
+                    alt="User"
+                    size="sm"
+                  />
+                )}
                 <div className="flex-1 bg-dark-700/50 rounded-lg p-3">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium text-white">
-                      {author?.displayName || 'User'}
-                    </span>
+                    {author ? (
+                      <Link 
+                        href={`/users/${author.id}`}
+                        className="text-sm font-medium text-white hover:text-cyan-400 transition-colors"
+                      >
+                        {author.displayName}
+                      </Link>
+                    ) : (
+                      <span className="text-sm font-medium text-white">User</span>
+                    )}
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-dark-500">
                         {formatDistanceToNow(comment.createdAt, { addSuffix: true })}

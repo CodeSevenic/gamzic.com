@@ -70,6 +70,15 @@ export const uploadTournamentBanner = async (
   return uploadImage(file, path);
 };
 
+export const uploadMatchBanner = async (
+  matchId: string,
+  file: File
+): Promise<string> => {
+  const ext = file.name.split('.').pop();
+  const path = `matches/${matchId}/banner.${ext}`;
+  return uploadImage(file, path);
+};
+
 export const deleteImage = async (url: string): Promise<void> => {
   try {
     const storageInstance = getStorage();

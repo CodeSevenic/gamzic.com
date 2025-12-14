@@ -234,15 +234,19 @@ export default function SchoolDetailPage() {
               {members.map((member, index) => (
                 <Link
                   key={member.id}
-                  href={`/players/${member.id}`}
+                  href={`/users/${member.id}`}
                   className="flex items-center gap-3 p-3 rounded-lg bg-dark-700/50 hover:bg-dark-700 transition-colors"
                 >
                   <span className="w-6 text-center text-dark-500 font-medium">
                     #{index + 1}
                   </span>
-                  <Avatar src={member.avatar} alt={member.displayName} size="sm" />
+                  <Avatar 
+                    src={member.avatar} 
+                    alt={member.displayName} 
+                    size="sm"
+                  />
                   <div className="flex-1">
-                    <p className="font-medium text-white">{member.displayName}</p>
+                    <p className="font-medium text-white hover:text-cyan-400 transition-colors">{member.displayName}</p>
                     <p className="text-sm text-dark-400">
                       {member.stats.wins}W - {member.stats.losses}L
                     </p>

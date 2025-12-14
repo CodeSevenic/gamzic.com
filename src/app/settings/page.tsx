@@ -13,9 +13,9 @@ import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import { useAuthStore } from '@/store/authStore';
-import { updateUser } from '@/lib/firebase/db';
+import { updateUser, getGames } from '@/lib/firebase/db';
 import { uploadAvatar } from '@/lib/firebase/storage';
-import { GAMES, GRADE_YEARS, type GameTags } from '@/types';
+import { GRADE_YEARS, type GameTags, type Game } from '@/types';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -27,6 +27,7 @@ export default function SettingsPage() {
   const [gameTags, setGameTags] = useState<GameTags>({});
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [games, setGames] = useState<Game[]>([]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -40,6 +41,17 @@ export default function SettingsPage() {
       setGradeYear(user.gradeYear || '');
       setGameTags(user.gameTags || {});
     }
+
+    // Fetch games
+    const fetchGames = async () => {
+      try {
+        const gamesList = await getGames(true);
+        setGames(gamesList);
+      } catch (error) {
+        console.error('Error fetching games:', error);
+      }
+    };
+    fetchGames();
   }, [user, loading, router]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -196,7 +208,7 @@ export default function SettingsPage() {
             <div>
               <h3 className="text-sm font-medium text-dark-200 mb-3">Game IDs</h3>
               <div className="space-y-3">
-                {GAMES.map((game) => (
+                {games.map((game) => (
                   <Input
                     key={game.id}
                     label={`${game.icon} ${game.name}`}

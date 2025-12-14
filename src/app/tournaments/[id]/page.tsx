@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -12,6 +13,7 @@ import {
   TrophyIcon,
   DocumentTextIcon,
   ArrowLeftIcon,
+  GiftIcon,
 } from '@heroicons/react/24/outline';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -19,8 +21,9 @@ import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import { useAuthStore } from '@/store/authStore';
-import { getTournament, getUser, registerForTournament, unregisterFromTournament } from '@/lib/firebase/db';
-import { GAMES, type Tournament, type User, type TournamentStatus } from '@/types';
+import { getTournament, getUsersByIds, registerForTournament, unregisterFromTournament } from '@/lib/firebase/db';
+import { type Tournament, type User, type TournamentStatus } from '@/types';
+import { useGames } from '@/hooks/useGames';
 
 const statusColors: Record<TournamentStatus, 'success' | 'warning' | 'info' | 'danger' | 'default'> = {
   draft: 'default',
@@ -42,14 +45,15 @@ export default function TournamentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuthStore();
+  const { getGameInfo } = useGames();
   const [tournament, setTournament] = useState<Tournament | null>(null);
-  const [participants, setParticipants] = useState<User[]>([]);
+  const [participantUsers, setParticipantUsers] = useState<Record<string, User>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isRegistering, setIsRegistering] = useState(false);
 
   const tournamentId = params.id as string;
   const isRegistered = user && tournament?.participants.includes(user.id);
-  const game = tournament ? GAMES.find((g) => g.id === tournament.game) : null;
+  const game = tournament ? getGameInfo(tournament.game) : null;
 
   useEffect(() => {
     const fetchTournament = async () => {
@@ -62,10 +66,9 @@ export default function TournamentDetailPage() {
         setTournament(fetchedTournament);
 
         // Fetch participants (for solo tournaments)
-        if (fetchedTournament.type === 'solo') {
-          const participantPromises = fetchedTournament.participants.map((id) => getUser(id));
-          const participantResults = await Promise.all(participantPromises);
-          setParticipants(participantResults.filter((p): p is User => p !== null));
+        if (fetchedTournament.type === 'solo' && fetchedTournament.participants.length > 0) {
+          const users = await getUsersByIds(fetchedTournament.participants);
+          setParticipantUsers(users);
         }
       } catch (error) {
         console.error('Error fetching tournament:', error);
@@ -86,7 +89,7 @@ export default function TournamentDetailPage() {
       setTournament((prev) =>
         prev ? { ...prev, participants: [...prev.participants, user.id] } : null
       );
-      setParticipants((prev) => [...prev, user]);
+      setParticipantUsers((prev) => ({ ...prev, [user.id]: user }));
       toast.success('Successfully registered for tournament!');
     } catch (error) {
       toast.error('Failed to register');
@@ -105,7 +108,11 @@ export default function TournamentDetailPage() {
       setTournament((prev) =>
         prev ? { ...prev, participants: prev.participants.filter((id) => id !== user.id) } : null
       );
-      setParticipants((prev) => prev.filter((p) => p.id !== user.id));
+      setParticipantUsers((prev) => {
+        const newUsers = { ...prev };
+        delete newUsers[user.id];
+        return newUsers;
+      });
       toast.success('Successfully unregistered from tournament');
     } catch (error) {
       toast.error('Failed to unregister');
@@ -114,6 +121,8 @@ export default function TournamentDetailPage() {
       setIsRegistering(false);
     }
   };
+
+  const participants = Object.values(participantUsers);
 
   if (isLoading) {
     return <PageLoader />;
@@ -191,17 +200,33 @@ export default function TournamentDetailPage() {
             </h2>
 
             {participants.length === 0 ? (
-              <p className="text-dark-400 text-center py-4">No participants yet</p>
+              <div className="text-center py-8">
+                <UserGroupIcon className="w-12 h-12 mx-auto mb-3 text-dark-500" />
+                <p className="text-dark-400">No participants yet</p>
+                <p className="text-sm text-dark-500 mt-1">Be the first to register!</p>
+              </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {participants.map((participant) => (
-                  <div
+                  <Link
                     key={participant.id}
-                    className="flex items-center gap-2 p-2 rounded-lg bg-dark-700/50"
+                    href={`/users/${participant.id}`}
+                    className="flex items-center gap-3 p-3 rounded-lg bg-dark-700/50 hover:bg-dark-700 transition-colors"
                   >
-                    <Avatar src={participant.avatar} alt={participant.displayName} size="sm" />
-                    <span className="text-sm text-white truncate">{participant.displayName}</span>
-                  </div>
+                    <Avatar 
+                      src={participant.avatar} 
+                      alt={participant.displayName} 
+                      size="md"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-white truncate hover:text-cyan-400 transition-colors">
+                        {participant.displayName}
+                      </p>
+                      <p className="text-xs text-dark-400">
+                        {participant.stats?.wins || 0} wins • {participant.stats?.matches || 0} matches
+                      </p>
+                    </div>
+                  </Link>
                 ))}
               </div>
             )}

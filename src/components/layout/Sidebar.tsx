@@ -13,6 +13,7 @@ import {
   Cog6ToothIcon,
   XMarkIcon,
   ShieldCheckIcon,
+  PlayIcon,
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeIconSolid,
@@ -22,12 +23,15 @@ import {
   UserIcon as UserIconSolid,
   Cog6ToothIcon as Cog6ToothIconSolid,
   ShieldCheckIcon as ShieldCheckIconSolid,
+  PlayIcon as PlayIconSolid,
 } from '@heroicons/react/24/solid';
 import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
+import { hasPermission } from '@/types';
 
 const navigation = [
   { name: 'Feed', href: '/feed', icon: HomeIcon, iconSolid: HomeIconSolid },
+  { name: 'Matches', href: '/matches', icon: PlayIcon, iconSolid: PlayIconSolid },
   { name: 'Tournaments', href: '/tournaments', icon: TrophyIcon, iconSolid: TrophyIconSolid },
   { name: 'Schools', href: '/schools', icon: AcademicCapIcon, iconSolid: AcademicCapIconSolid },
   { name: 'Teams', href: '/teams', icon: UserGroupIcon, iconSolid: UserGroupIconSolid },
@@ -121,8 +125,8 @@ export function Sidebar() {
         </div>
       )}
 
-      {/* Admin Navigation */}
-      {user?.role === 'admin' && (
+      {/* Admin Navigation - Show for moderator role and above */}
+      {user && hasPermission(user.role, 'moderator') && (
         <div className="px-3 mt-6 space-y-1">
           <p className="px-3 mb-2 text-xs font-semibold text-dark-500 uppercase tracking-wider">
             Admin
@@ -140,12 +144,12 @@ export function Sidebar() {
                   flex items-center gap-3 px-3 py-2.5 rounded-lg
                   transition-all duration-200 group
                   ${isActive
-                    ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-400 border border-purple-500/30'
+                    ? 'bg-gradient-to-r from-orange-500/20 to-red-500/20 text-orange-400 border border-orange-500/30'
                     : 'text-dark-300 hover:text-white hover:bg-dark-800'
                   }
                 `}
               >
-                <Icon className={`w-5 h-5 ${isActive ? 'text-purple-400' : 'text-dark-400 group-hover:text-purple-400'}`} />
+                <Icon className={`w-5 h-5 ${isActive ? 'text-orange-400' : 'text-dark-400 group-hover:text-orange-400'}`} />
                 <span className="font-medium">{item.name}</span>
               </Link>
             );

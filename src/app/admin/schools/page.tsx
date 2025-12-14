@@ -7,19 +7,24 @@ import toast from 'react-hot-toast';
 import {
   PlusIcon,
   PencilIcon,
+  TrashIcon,
   CheckBadgeIcon,
   MapPinIcon,
 } from '@heroicons/react/24/outline';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { Modal } from '@/components/ui/Modal';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
-import { getSchools, updateSchool } from '@/lib/firebase/db';
+import { getSchools, updateSchool, deleteSchool } from '@/lib/firebase/db';
 import type { School } from '@/types';
 
 export default function AdminSchoolsPage() {
   const [schools, setSchools] = useState<School[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [schoolToDelete, setSchoolToDelete] = useState<School | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const fetchSchools = async () => {
@@ -48,6 +53,24 @@ export default function AdminSchoolsPage() {
     } catch (error) {
       toast.error('Failed to update school');
       console.error(error);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!schoolToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteSchool(schoolToDelete.id);
+      setSchools((prev) => prev.filter((s) => s.id !== schoolToDelete.id));
+      toast.success('School deleted');
+      setDeleteModalOpen(false);
+      setSchoolToDelete(null);
+    } catch (error) {
+      toast.error('Failed to delete school');
+      console.error(error);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -128,17 +151,57 @@ export default function AdminSchoolsPage() {
                   >
                     {school.isVerified ? 'Remove Verify' : 'Verify'}
                   </Button>
-                  <Link href={`/admin/schools/${school.id}/edit`}>
-                    <Button variant="ghost" size="sm">
-                      <PencilIcon className="w-4 h-4" />
+                  <div className="flex items-center gap-2">
+                    <Link href={`/admin/schools/${school.id}/edit`}>
+                      <Button variant="ghost" size="sm">
+                        <PencilIcon className="w-4 h-4" />
+                      </Button>
+                    </Link>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSchoolToDelete(school);
+                        setDeleteModalOpen(true);
+                      }}
+                      className="text-red-400 hover:text-red-300"
+                    >
+                      <TrashIcon className="w-4 h-4" />
                     </Button>
-                  </Link>
+                  </div>
                 </div>
               </Card>
             </motion.div>
           ))}
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title="Delete School"
+        size="sm"
+      >
+        <div className="p-6">
+          <p className="text-dark-300 mb-6">
+            Are you sure you want to delete &quot;{schoolToDelete?.name}&quot;? This action cannot be undone.
+            {schoolToDelete && (schoolToDelete.members.length > 0 || schoolToDelete.teams.length > 0) && (
+              <span className="block mt-2 text-yellow-400 text-sm">
+                ⚠️ This school has {schoolToDelete.members.length} member(s) and {schoolToDelete.teams.length} team(s).
+              </span>
+            )}
+          </p>
+          <div className="flex justify-end gap-3">
+            <Button variant="ghost" onClick={() => setDeleteModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleDelete} isLoading={isDeleting}>
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

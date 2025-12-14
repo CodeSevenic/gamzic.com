@@ -15,9 +15,11 @@ import {
   arrayUnion,
   arrayRemove,
   increment,
+  onSnapshot,
   DocumentSnapshot,
   QueryConstraint,
   Timestamp,
+  Unsubscribe,
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './config';
 import type {
@@ -29,6 +31,9 @@ import type {
   Comment,
   Notification,
   Bracket,
+  Match,
+  MatchParticipant,
+  Game,
   ReactionType,
 } from '@/types';
 
@@ -45,6 +50,13 @@ const convertTimestamp = (timestamp: Timestamp | Date | undefined): Date => {
   if (!timestamp) return new Date();
   if (timestamp instanceof Timestamp) return timestamp.toDate();
   return timestamp;
+};
+
+// Helper to remove undefined values (Firestore doesn't accept undefined)
+const removeUndefined = <T extends Record<string, unknown>>(obj: T): Partial<T> => {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, value]) => value !== undefined)
+  ) as Partial<T>;
 };
 
 // ============ USERS ============
@@ -190,7 +202,7 @@ export const createSchool = async (schoolData: Omit<School, 'id' | 'createdAt' |
   const firestore = getDb();
   const schoolRef = doc(collection(firestore, 'schools'));
   await setDoc(schoolRef, {
-    ...schoolData,
+    ...removeUndefined(schoolData),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -204,6 +216,11 @@ export const updateSchool = async (schoolId: string, data: Partial<School>): Pro
     ...data,
     updatedAt: serverTimestamp(),
   });
+};
+
+export const deleteSchool = async (schoolId: string): Promise<void> => {
+  const firestore = getDb();
+  await deleteDoc(doc(firestore, 'schools', schoolId));
 };
 
 export const joinSchool = async (userId: string, schoolId: string): Promise<void> => {
@@ -255,7 +272,7 @@ export const createTeam = async (teamData: Omit<Team, 'id' | 'createdAt' | 'upda
   const firestore = getDb();
   const teamRef = doc(collection(firestore, 'teams'));
   await setDoc(teamRef, {
-    ...teamData,
+    ...removeUndefined(teamData),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -367,7 +384,7 @@ export const createTournament = async (
   const firestore = getDb();
   const tournamentRef = doc(collection(firestore, 'tournaments'));
   await setDoc(tournamentRef, {
-    ...tournamentData,
+    ...removeUndefined(tournamentData),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -381,6 +398,11 @@ export const updateTournament = async (tournamentId: string, data: Partial<Tourn
     ...data,
     updatedAt: serverTimestamp(),
   });
+};
+
+export const deleteTournament = async (tournamentId: string): Promise<void> => {
+  const firestore = getDb();
+  await deleteDoc(doc(firestore, 'tournaments', tournamentId));
 };
 
 export const registerForTournament = async (
@@ -435,7 +457,7 @@ export const createBracket = async (bracketData: Omit<Bracket, 'id' | 'createdAt
   const firestore = getDb();
   const bracketRef = doc(collection(firestore, 'brackets'));
   await setDoc(bracketRef, {
-    ...bracketData,
+    ...removeUndefined(bracketData),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -455,6 +477,278 @@ export const updateBracket = async (bracketId: string, data: Partial<Bracket>): 
     ...data,
     updatedAt: serverTimestamp(),
   });
+};
+
+// ============ GAMES ============
+export const getGames = async (activeOnly = true): Promise<Game[]> => {
+  const firestore = getDb();
+  const constraints: QueryConstraint[] = [orderBy('name', 'asc')];
+  
+  if (activeOnly) {
+    constraints.unshift(where('isActive', '==', true));
+  }
+  
+  const gamesQuery = query(collection(firestore, 'games'), ...constraints);
+  const snapshot = await getDocs(gamesQuery);
+  
+  return snapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ...data,
+      createdAt: convertTimestamp(data.createdAt),
+      updatedAt: convertTimestamp(data.updatedAt),
+    } as Game;
+  });
+};
+
+export const getGame = async (gameId: string): Promise<Game | null> => {
+  const firestore = getDb();
+  const gameDoc = await getDoc(doc(firestore, 'games', gameId));
+  if (!gameDoc.exists()) return null;
+  const data = gameDoc.data();
+  return {
+    id: gameDoc.id,
+    ...data,
+    createdAt: convertTimestamp(data.createdAt),
+    updatedAt: convertTimestamp(data.updatedAt),
+  } as Game;
+};
+
+export const createGame = async (
+  gameData: Omit<Game, 'id' | 'createdAt' | 'updatedAt'>
+): Promise<string> => {
+  const firestore = getDb();
+  const gameRef = doc(collection(firestore, 'games'));
+  await setDoc(gameRef, {
+    ...removeUndefined(gameData),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return gameRef.id;
+};
+
+export const updateGame = async (gameId: string, data: Partial<Game>): Promise<void> => {
+  const firestore = getDb();
+  const gameRef = doc(firestore, 'games', gameId);
+  await updateDoc(gameRef, {
+    ...data,
+    updatedAt: serverTimestamp(),
+  });
+};
+
+export const deleteGame = async (gameId: string): Promise<void> => {
+  const firestore = getDb();
+  await deleteDoc(doc(firestore, 'games', gameId));
+};
+
+// Seed default games (call once during initial setup)
+export const seedDefaultGames = async (): Promise<void> => {
+  const firestore = getDb();
+  const { DEFAULT_GAMES } = await import('@/types');
+  
+  for (const game of DEFAULT_GAMES) {
+    const gameRef = doc(firestore, 'games', game.id);
+    const existing = await getDoc(gameRef);
+    
+    if (!existing.exists()) {
+      await setDoc(gameRef, {
+        name: game.name,
+        icon: game.icon,
+        isActive: true,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    }
+  }
+};
+
+// ============ MATCHES (Standalone) ============
+export const getMatches = async (
+  status?: string,
+  game?: string,
+  limitCount = 20,
+  lastDoc?: DocumentSnapshot
+): Promise<{ matches: Match[]; lastDoc: DocumentSnapshot | null }> => {
+  const firestore = getDb();
+  const constraints: QueryConstraint[] = [orderBy('scheduledTime', 'desc')];
+  
+  if (status) {
+    constraints.unshift(where('status', '==', status));
+  }
+  if (game) {
+    constraints.unshift(where('game', '==', game));
+  }
+  
+  constraints.push(limit(limitCount));
+  if (lastDoc) {
+    constraints.push(startAfter(lastDoc));
+  }
+  
+  const matchesQuery = query(collection(firestore, 'matches'), ...constraints);
+  const snapshot = await getDocs(matchesQuery);
+  
+  const matches = snapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ...data,
+      scheduledTime: data.scheduledTime ? convertTimestamp(data.scheduledTime) : undefined,
+      completedAt: data.completedAt ? convertTimestamp(data.completedAt) : undefined,
+      registrationDeadline: data.registrationDeadline ? convertTimestamp(data.registrationDeadline) : undefined,
+      createdAt: convertTimestamp(data.createdAt),
+      updatedAt: convertTimestamp(data.updatedAt),
+    } as Match;
+  });
+  
+  return {
+    matches,
+    lastDoc: snapshot.docs[snapshot.docs.length - 1] || null,
+  };
+};
+
+export const getMatch = async (matchId: string): Promise<Match | null> => {
+  const firestore = getDb();
+  const matchDoc = await getDoc(doc(firestore, 'matches', matchId));
+  if (!matchDoc.exists()) return null;
+  const data = matchDoc.data();
+  return {
+    id: matchDoc.id,
+    ...data,
+    scheduledTime: data.scheduledTime ? convertTimestamp(data.scheduledTime) : undefined,
+    completedAt: data.completedAt ? convertTimestamp(data.completedAt) : undefined,
+    registrationDeadline: data.registrationDeadline ? convertTimestamp(data.registrationDeadline) : undefined,
+    createdAt: convertTimestamp(data.createdAt),
+    updatedAt: convertTimestamp(data.updatedAt),
+  } as Match;
+};
+
+export const createMatch = async (
+  matchData: Omit<Match, 'id' | 'createdAt' | 'updatedAt'>
+): Promise<string> => {
+  const firestore = getDb();
+  const matchRef = doc(collection(firestore, 'matches'));
+  await setDoc(matchRef, {
+    ...removeUndefined(matchData),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return matchRef.id;
+};
+
+export const updateMatch = async (matchId: string, data: Partial<Match>): Promise<void> => {
+  const firestore = getDb();
+  const matchRef = doc(firestore, 'matches', matchId);
+  await updateDoc(matchRef, {
+    ...data,
+    updatedAt: serverTimestamp(),
+  });
+};
+
+export const deleteMatch = async (matchId: string): Promise<void> => {
+  const firestore = getDb();
+  await deleteDoc(doc(firestore, 'matches', matchId));
+};
+
+export const joinMatch = async (
+  matchId: string,
+  participant: MatchParticipant
+): Promise<void> => {
+  const firestore = getDb();
+  const matchRef = doc(firestore, 'matches', matchId);
+  const matchDoc = await getDoc(matchRef);
+  
+  if (!matchDoc.exists()) {
+    throw new Error('Match not found');
+  }
+  
+  const matchData = matchDoc.data();
+  const participants = matchData.participants || [];
+  
+  // Check if already joined
+  const alreadyJoined = participants.some(
+    (p: MatchParticipant) => 
+      (p.oduserId && p.oduserId === participant.oduserId) ||
+      (p.teamId && p.teamId === participant.teamId)
+  );
+  
+  if (alreadyJoined) {
+    throw new Error('Already joined this match');
+  }
+  
+  // Check max participants
+  if (participants.length >= matchData.maxParticipants) {
+    throw new Error('Match is full');
+  }
+  
+  await updateDoc(matchRef, {
+    participants: arrayUnion({
+      ...participant,
+      joinedAt: new Date(),
+    }),
+    updatedAt: serverTimestamp(),
+  });
+  
+  // If match is full, update status to scheduled
+  if (participants.length + 1 >= matchData.maxParticipants) {
+    await updateDoc(matchRef, {
+      status: 'scheduled',
+    });
+  }
+};
+
+export const leaveMatch = async (
+  matchId: string,
+  oduserId?: string,
+  teamId?: string
+): Promise<void> => {
+  const firestore = getDb();
+  const matchRef = doc(firestore, 'matches', matchId);
+  const matchDoc = await getDoc(matchRef);
+  
+  if (!matchDoc.exists()) {
+    throw new Error('Match not found');
+  }
+  
+  const matchData = matchDoc.data();
+  const participants = matchData.participants || [];
+  
+  // Find the participant to remove
+  const updatedParticipants = participants.filter(
+    (p: MatchParticipant) => {
+      if (oduserId) return p.oduserId !== oduserId;
+      if (teamId) return p.teamId !== teamId;
+      return true;
+    }
+  );
+  
+  await updateDoc(matchRef, {
+    participants: updatedParticipants,
+    status: 'open', // Reopen the match if someone leaves
+    updatedAt: serverTimestamp(),
+  });
+};
+
+export const updateMatchScores = async (
+  matchId: string,
+  scores: Record<string, number>,
+  winnerId?: string
+): Promise<void> => {
+  const firestore = getDb();
+  const matchRef = doc(firestore, 'matches', matchId);
+  
+  const updateData: Record<string, unknown> = {
+    scores,
+    updatedAt: serverTimestamp(),
+  };
+  
+  if (winnerId) {
+    updateData.winnerId = winnerId;
+    updateData.status = 'completed';
+    updateData.completedAt = serverTimestamp();
+  }
+  
+  await updateDoc(matchRef, updateData);
 };
 
 // ============ POSTS ============
@@ -517,7 +811,7 @@ export const createPost = async (postData: Omit<Post, 'id' | 'createdAt' | 'upda
   const firestore = getDb();
   const postRef = doc(collection(firestore, 'posts'));
   await setDoc(postRef, {
-    ...postData,
+    ...removeUndefined(postData),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -536,6 +830,187 @@ export const updatePost = async (postId: string, data: Partial<Post>): Promise<v
 export const deletePost = async (postId: string): Promise<void> => {
   const firestore = getDb();
   await deleteDoc(doc(firestore, 'posts', postId));
+};
+
+// Get posts by author (for profile pages)
+export const getPostsByAuthor = async (
+  authorId: string,
+  limitCount = 20,
+  lastDoc?: DocumentSnapshot
+): Promise<{ posts: Post[]; lastDoc: DocumentSnapshot | null }> => {
+  const firestore = getDb();
+  
+  try {
+    // Query posts where authorId matches OR createdBy matches (for posts without authorId)
+    // We don't use orderBy to avoid needing composite indexes - we sort client-side
+    const createdByQuery = query(
+      collection(firestore, 'posts'),
+      where('createdBy', '==', authorId)
+    );
+    
+    // First get posts created by this user (most common case)
+    const createdBySnapshot = await getDocs(createdByQuery);
+    
+    // Merge and dedupe posts
+    const postsMap = new Map<string, Post>();
+    
+    createdBySnapshot.docs.forEach((doc) => {
+      const data = doc.data();
+      if (data) {
+        postsMap.set(doc.id, {
+          id: doc.id,
+          ...data,
+          createdAt: convertTimestamp(data.createdAt),
+          updatedAt: convertTimestamp(data.updatedAt),
+        } as Post);
+      }
+    });
+    
+    // Also try to get posts where authorId is set (for "post as" feature)
+    // This might fail if no posts have authorId set yet, so we wrap in try-catch
+    try {
+      const authorQuery = query(
+        collection(firestore, 'posts'),
+        where('authorId', '==', authorId)
+      );
+      const authorSnapshot = await getDocs(authorQuery);
+      
+      authorSnapshot.docs.forEach((doc) => {
+        if (!postsMap.has(doc.id)) {
+          const data = doc.data();
+          if (data) {
+            postsMap.set(doc.id, {
+              id: doc.id,
+              ...data,
+              createdAt: convertTimestamp(data.createdAt),
+              updatedAt: convertTimestamp(data.updatedAt),
+            } as Post);
+          }
+        }
+      });
+    } catch (authorQueryError) {
+      // authorId query might fail if index doesn't exist yet - that's okay
+      console.log('Note: authorId query skipped (index may not exist yet)');
+    }
+    
+    // Sort by createdAt descending (client-side to avoid index requirement)
+    const posts = Array.from(postsMap.values()).sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+    ).slice(0, limitCount);
+    
+    return {
+      posts,
+      lastDoc: null, // Pagination is complex with merged queries
+    };
+  } catch (error) {
+    console.error('Error fetching posts by author:', error);
+    return { posts: [], lastDoc: null };
+  }
+};
+
+// Get accounts that the user can manage/post as
+export const getManageableAccounts = async (userId: string): Promise<User[]> => {
+  const firestore = getDb();
+  
+  // Get accounts where userId is in managedBy array
+  const managedQuery = query(
+    collection(firestore, 'users'),
+    where('managedBy', 'array-contains', userId)
+  );
+  
+  const snapshot = await getDocs(managedQuery);
+  
+  return snapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ...data,
+      createdAt: convertTimestamp(data.createdAt),
+      updatedAt: convertTimestamp(data.updatedAt),
+    } as User;
+  });
+};
+
+// Get all business/sponsor accounts (for admin management)
+export const getBusinessAccounts = async (
+  accountType?: 'business' | 'sponsor' | 'organization'
+): Promise<User[]> => {
+  const firestore = getDb();
+  
+  // Query without orderBy to avoid needing a composite index
+  // We'll sort client-side instead
+  const accountsQuery = query(
+    collection(firestore, 'users'),
+    where('accountType', 'in', accountType ? [accountType] : ['business', 'sponsor', 'organization'])
+  );
+  
+  const snapshot = await getDocs(accountsQuery);
+  
+  const accounts = snapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ...data,
+      createdAt: convertTimestamp(data.createdAt),
+      updatedAt: convertTimestamp(data.updatedAt),
+    } as User;
+  });
+  
+  // Sort by displayName client-side
+  return accounts.sort((a, b) => a.displayName.localeCompare(b.displayName));
+};
+
+// Create a business/sponsor account
+export const createBusinessAccount = async (
+  accountData: {
+    displayName: string;
+    email: string;
+    accountType: 'business' | 'sponsor' | 'organization';
+    businessInfo?: {
+      companyName?: string;
+      website?: string;
+      industry?: string;
+      description?: string;
+      contactEmail?: string;
+    };
+    avatar?: string;
+    managedBy: string[];
+  }
+): Promise<string> => {
+  const firestore = getDb();
+  const accountRef = doc(collection(firestore, 'users'));
+  
+  await setDoc(accountRef, {
+    ...accountData,
+    fullName: accountData.displayName,
+    bio: accountData.businessInfo?.description || '',
+    gameTags: {},
+    followers: [],
+    following: [],
+    tournamentsJoined: [],
+    teamsJoined: [],
+    stats: { wins: 0, losses: 0, matches: 0, tournamentWins: 0 },
+    role: 'player', // Business accounts don't need admin roles
+    badges: [],
+    isOnboarded: true,
+    isVerified: false,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  
+  return accountRef.id;
+};
+
+// Update managedBy for an account
+export const updateAccountManagers = async (
+  accountId: string,
+  managerIds: string[]
+): Promise<void> => {
+  const firestore = getDb();
+  await updateDoc(doc(firestore, 'users', accountId), {
+    managedBy: managerIds,
+    updatedAt: serverTimestamp(),
+  });
 };
 
 export const reactToPost = async (
@@ -590,7 +1065,7 @@ export const createComment = async (commentData: Omit<Comment, 'id' | 'createdAt
   const firestore = getDb();
   const commentRef = doc(collection(firestore, 'comments'));
   await setDoc(commentRef, {
-    ...commentData,
+    ...removeUndefined(commentData),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -651,7 +1126,7 @@ export const createNotification = async (
   const firestore = getDb();
   const notificationRef = doc(collection(firestore, 'notifications'));
   await setDoc(notificationRef, {
-    ...notificationData,
+    ...removeUndefined(notificationData),
     createdAt: serverTimestamp(),
   });
   return notificationRef.id;
@@ -677,4 +1152,82 @@ export const markAllNotificationsRead = async (userId: string): Promise<void> =>
     updateDoc(doc.ref, { isRead: true })
   );
   await Promise.all(updates);
+};
+
+// ============ REAL-TIME LISTENERS ============
+
+// Subscribe to real-time match updates
+export const subscribeToMatch = (
+  matchId: string,
+  callback: (match: Match | null) => void
+): Unsubscribe => {
+  const firestore = getDb();
+  const matchRef = doc(firestore, 'matches', matchId);
+  
+  return onSnapshot(matchRef, (snapshot) => {
+    if (!snapshot.exists()) {
+      callback(null);
+      return;
+    }
+    const data = snapshot.data();
+    callback({
+      id: snapshot.id,
+      ...data,
+      scheduledTime: data.scheduledTime ? convertTimestamp(data.scheduledTime) : undefined,
+      completedAt: data.completedAt ? convertTimestamp(data.completedAt) : undefined,
+      registrationDeadline: data.registrationDeadline ? convertTimestamp(data.registrationDeadline) : undefined,
+      createdAt: convertTimestamp(data.createdAt),
+      updatedAt: convertTimestamp(data.updatedAt),
+    } as Match);
+  });
+};
+
+// Subscribe to real-time tournament updates
+export const subscribeToTournament = (
+  tournamentId: string,
+  callback: (tournament: Tournament | null) => void
+): Unsubscribe => {
+  const firestore = getDb();
+  const tournamentRef = doc(firestore, 'tournaments', tournamentId);
+  
+  return onSnapshot(tournamentRef, (snapshot) => {
+    if (!snapshot.exists()) {
+      callback(null);
+      return;
+    }
+    const data = snapshot.data();
+    callback({
+      id: snapshot.id,
+      ...data,
+      dateStart: convertTimestamp(data.dateStart),
+      dateEnd: convertTimestamp(data.dateEnd),
+      registrationDeadline: convertTimestamp(data.registrationDeadline),
+      createdAt: convertTimestamp(data.createdAt),
+      updatedAt: convertTimestamp(data.updatedAt),
+    } as Tournament);
+  });
+};
+
+// Get multiple users by IDs (for displaying avatars)
+export const getUsersByIds = async (userIds: string[]): Promise<Record<string, User>> => {
+  if (userIds.length === 0) return {};
+  
+  const firestore = getDb();
+  const userPromises = userIds.map((id) => getDoc(doc(firestore, 'users', id)));
+  const snapshots = await Promise.all(userPromises);
+  
+  const users: Record<string, User> = {};
+  snapshots.forEach((snapshot) => {
+    if (snapshot.exists()) {
+      const data = snapshot.data();
+      users[snapshot.id] = {
+        id: snapshot.id,
+        ...data,
+        createdAt: convertTimestamp(data.createdAt),
+        updatedAt: convertTimestamp(data.updatedAt),
+      } as User;
+    }
+  });
+  
+  return users;
 };

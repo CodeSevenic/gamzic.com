@@ -15,8 +15,8 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
 import { Card } from '@/components/ui/Card';
 import { useAuthStore } from '@/store/authStore';
-import { getSchools, joinSchool, updateUser } from '@/lib/firebase/db';
-import { GAMES, GRADE_YEARS, type GameTags, type School } from '@/types';
+import { getSchools, joinSchool, updateUser, getGames } from '@/lib/firebase/db';
+import { GRADE_YEARS, type GameTags, type School, type Game } from '@/types';
 
 type Step = 'welcome' | 'profile' | 'school' | 'games';
 
@@ -34,6 +34,7 @@ export default function OnboardingPage() {
   const [bio, setBio] = useState('');
   const [gradeYear, setGradeYear] = useState('');
   const [gameTags, setGameTags] = useState<GameTags>({});
+  const [games, setGames] = useState<Game[]>([]);
 
   useEffect(() => {
     if (!firebaseUser) {
@@ -41,17 +42,27 @@ export default function OnboardingPage() {
       return;
     }
 
-    const fetchSchools = async () => {
+    // Redirect already onboarded users to feed
+    if (user?.isOnboarded) {
+      router.push('/feed');
+      return;
+    }
+
+    const fetchData = async () => {
       try {
-        const schoolsList = await getSchools();
+        const [schoolsList, gamesList] = await Promise.all([
+          getSchools(),
+          getGames(true),
+        ]);
         setSchools(schoolsList);
+        setGames(gamesList);
       } catch (error) {
-        console.error('Error fetching schools:', error);
+        console.error('Error fetching data:', error);
       }
     };
 
-    fetchSchools();
-  }, [firebaseUser, router]);
+    fetchData();
+  }, [firebaseUser, user, router]);
 
   const getSteps = () => {
     if (userType === 'fan') {
@@ -333,7 +344,7 @@ export default function OnboardingPage() {
                   </div>
 
                   <div className="grid gap-4">
-                    {GAMES.map((game) => (
+                    {games.map((game) => (
                       <Input
                         key={game.id}
                         label={`${game.icon} ${game.name}`}

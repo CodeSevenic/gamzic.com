@@ -13,11 +13,12 @@ import { Button } from '@/components/ui/Button';
 import { useAuthStore } from '@/store/authStore';
 import { createTeam } from '@/lib/firebase/db';
 import { uploadTeamLogo } from '@/lib/firebase/storage';
-import { GAMES } from '@/types';
+import { useGames } from '@/hooks/useGames';
 
 export default function CreateTeamPage() {
   const router = useRouter();
   const { user } = useAuthStore();
+  const { gameOptions } = useGames();
   const [isLoading, setIsLoading] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -152,10 +153,7 @@ export default function CreateTeamPage() {
 
             <Select
               label="Game"
-              options={GAMES.map((g) => ({
-                value: g.id,
-                label: `${g.icon} ${g.name}`,
-              }))}
+              options={gameOptions}
               placeholder="Select a game"
               value={game}
               onChange={(e) => setGame(e.target.value)}

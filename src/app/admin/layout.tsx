@@ -14,6 +14,10 @@ import {
   ChartBarIcon,
   ArrowRightOnRectangleIcon,
   ShieldCheckIcon,
+  PlayIcon,
+  PuzzlePieceIcon,
+  ArrowLeftIcon,
+  BuildingOffice2Icon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '@/store/authStore';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
@@ -25,8 +29,11 @@ const adminNav = [
   { name: 'Dashboard', href: '/admin', icon: HomeIcon, minRole: 'moderator' as const },
   { name: 'Posts', href: '/admin/posts', icon: DocumentTextIcon, minRole: 'moderator' as const },
   { name: 'Tournaments', href: '/admin/tournaments', icon: TrophyIcon, minRole: 'admin' as const },
+  { name: 'Matches', href: '/admin/matches', icon: PlayIcon, minRole: 'admin' as const },
+  { name: 'Games', href: '/admin/games', icon: PuzzlePieceIcon, minRole: 'admin' as const },
   { name: 'Schools', href: '/admin/schools', icon: AcademicCapIcon, minRole: 'admin' as const },
   { name: 'Users', href: '/admin/users', icon: UserGroupIcon, minRole: 'admin' as const },
+  { name: 'Accounts', href: '/admin/accounts', icon: BuildingOffice2Icon, minRole: 'admin' as const },
   { name: 'Reports', href: '/admin/reports', icon: FlagIcon, minRole: 'moderator' as const },
   { name: 'Analytics', href: '/admin/analytics', icon: ChartBarIcon, minRole: 'super_admin' as const },
 ];
@@ -152,6 +159,16 @@ export default function AdminLayout({
               </p>
             </div>
           </div>
+          
+          {/* Back to App button */}
+          <Link
+            href="/feed"
+            className="flex items-center gap-2 w-full px-3 py-2 mb-2 rounded-lg text-sm bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border border-cyan-500/30 text-cyan-400 hover:from-cyan-500/30 hover:to-purple-500/30 transition-colors"
+          >
+            <ArrowLeftIcon className="w-4 h-4" />
+            Back to App
+          </Link>
+          
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"

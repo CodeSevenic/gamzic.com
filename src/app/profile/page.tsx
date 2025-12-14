@@ -19,8 +19,8 @@ import { Button } from '@/components/ui/Button';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import { useAuthStore } from '@/store/authStore';
 import { signOut } from '@/lib/firebase/auth';
-import { getSchool, getTeam, getTournament } from '@/lib/firebase/db';
-import { GAMES, type School, type Team, type Tournament } from '@/types';
+import { getSchool, getTeam, getTournament, getGames } from '@/lib/firebase/db';
+import { type School, type Team, type Tournament, type Game } from '@/types';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -28,6 +28,7 @@ export default function ProfilePage() {
   const [school, setSchool] = useState<School | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [games, setGames] = useState<Game[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -40,11 +41,14 @@ export default function ProfilePage() {
       if (!user) return;
 
       try {
-        // Fetch school
-        if (user.schoolId) {
-          const fetchedSchool = await getSchool(user.schoolId);
-          setSchool(fetchedSchool);
-        }
+        // Fetch all data in parallel
+        const [fetchedSchool, gamesList] = await Promise.all([
+          user.schoolId ? getSchool(user.schoolId) : Promise.resolve(null),
+          getGames(true),
+        ]);
+        
+        setSchool(fetchedSchool);
+        setGames(gamesList);
 
         // Fetch teams
         if (user.teamsJoined.length > 0) {
@@ -164,7 +168,7 @@ export default function ProfilePage() {
             <p className="text-dark-400 text-center py-4">No game IDs added yet</p>
           ) : (
             <div className="space-y-3">
-              {GAMES.filter((game) => user.gameTags[game.id]).map((game) => (
+              {games.filter((game) => user.gameTags[game.id]).map((game) => (
                 <div
                   key={game.id}
                   className="flex items-center justify-between p-3 rounded-lg bg-dark-700/50"
@@ -203,7 +207,7 @@ export default function ProfilePage() {
           ) : (
             <div className="space-y-3">
               {teams.map((team) => {
-                const game = GAMES.find((g) => g.id === team.game);
+                const game = games.find((g) => g.id === team.game);
                 
                 return (
                   <Link
@@ -255,7 +259,7 @@ export default function ProfilePage() {
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               {tournaments.map((tournament) => {
-                const game = GAMES.find((g) => g.id === tournament.game);
+                const game = games.find((g) => g.id === tournament.game);
                 
                 return (
                   <Link

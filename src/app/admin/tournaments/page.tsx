@@ -16,8 +16,9 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
-import { getTournaments, updateTournament } from '@/lib/firebase/db';
-import { GAMES, type Tournament, type TournamentStatus } from '@/types';
+import { getTournaments, updateTournament, deleteTournament } from '@/lib/firebase/db';
+import { type Tournament, type TournamentStatus } from '@/types';
+import { useGames } from '@/hooks/useGames';
 
 const statusColors: Record<TournamentStatus, 'success' | 'warning' | 'info' | 'danger' | 'default'> = {
   draft: 'default',
@@ -28,11 +29,15 @@ const statusColors: Record<TournamentStatus, 'success' | 'warning' | 'info' | 'd
 };
 
 export default function AdminTournamentsPage() {
+  const { getGameInfo } = useGames();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
+  const [tournamentToDelete, setTournamentToDelete] = useState<Tournament | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const fetchTournaments = async () => {
@@ -71,6 +76,24 @@ export default function AdminTournamentsPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!tournamentToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteTournament(tournamentToDelete.id);
+      setTournaments((prev) => prev.filter((t) => t.id !== tournamentToDelete.id));
+      toast.success('Tournament deleted');
+      setDeleteModalOpen(false);
+      setTournamentToDelete(null);
+    } catch (error) {
+      toast.error('Failed to delete tournament');
+      console.error(error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (isLoading) {
     return <PageLoader />;
   }
@@ -99,7 +122,7 @@ export default function AdminTournamentsPage() {
       ) : (
         <div className="space-y-4">
           {tournaments.map((tournament, index) => {
-            const game = GAMES.find((g) => g.id === tournament.game);
+            const game = getGameInfo(tournament.game);
 
             return (
               <motion.div
@@ -111,7 +134,7 @@ export default function AdminTournamentsPage() {
                 <Card variant="default" className="flex items-center gap-4">
                   {/* Icon */}
                   <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-yellow-500/20 to-orange-500/20 flex items-center justify-center flex-shrink-0">
-                    <span className="text-3xl">{game?.icon || '🎮'}</span>
+                    <span className="text-3xl">{game.icon}</span>
                   </div>
 
                   {/* Content */}
@@ -123,7 +146,7 @@ export default function AdminTournamentsPage() {
                       </Badge>
                     </div>
                     <p className="text-sm text-dark-400 mb-1">
-                      {game?.name || tournament.game} • {tournament.type === 'solo' ? 'Solo' : 'Team'}
+                      {game.name} • {tournament.type === 'solo' ? 'Solo' : 'Team'}
                     </p>
                     <div className="flex items-center gap-4 text-sm text-dark-500">
                       <span>{format(tournament.dateStart, 'MMM d, yyyy')}</span>
@@ -152,6 +175,17 @@ export default function AdminTournamentsPage() {
                         <PencilIcon className="w-4 h-4" />
                       </Button>
                     </Link>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setTournamentToDelete(tournament);
+                        setDeleteModalOpen(true);
+                      }}
+                      className="text-red-400 hover:text-red-300"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </Button>
                   </div>
                 </Card>
               </motion.div>
@@ -191,6 +225,33 @@ export default function AdminTournamentsPage() {
                 </button>
               )
             )}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title="Delete Tournament"
+        size="sm"
+      >
+        <div className="p-6">
+          <p className="text-dark-300 mb-6">
+            Are you sure you want to delete &quot;{tournamentToDelete?.title}&quot;? This action cannot be undone.
+            {tournamentToDelete && tournamentToDelete.participants.length > 0 && (
+              <span className="block mt-2 text-yellow-400 text-sm">
+                ⚠️ This tournament has {tournamentToDelete.participants.length} registered participant(s).
+              </span>
+            )}
+          </p>
+          <div className="flex justify-end gap-3">
+            <Button variant="ghost" onClick={() => setDeleteModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleDelete} isLoading={isDeleting}>
+              Delete
+            </Button>
           </div>
         </div>
       </Modal>

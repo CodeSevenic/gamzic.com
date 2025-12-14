@@ -8,38 +8,22 @@ interface LoadingSpinnerProps {
 }
 
 const sizeStyles = {
-  sm: 'w-5 h-5',
-  md: 'w-8 h-8',
-  lg: 'w-12 h-12',
+  sm: 'w-5 h-5 border-2',
+  md: 'w-8 h-8 border-2',
+  lg: 'w-12 h-12 border-3',
 };
 
 export function LoadingSpinner({ size = 'md', className = '' }: LoadingSpinnerProps) {
   return (
     <motion.div
-      className={`${sizeStyles[size]} ${className}`}
+      className={`${sizeStyles[size]} ${className} rounded-full border-transparent border-t-cyan-500 border-r-cyan-500/30`}
       animate={{ rotate: 360 }}
-      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-    >
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <circle
-          className="opacity-25"
-          cx="12"
-          cy="12"
-          r="10"
-          stroke="currentColor"
-          strokeWidth="4"
-        />
-        <path
-          className="opacity-75"
-          fill="currentColor"
-          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-        />
-      </svg>
-    </motion.div>
+      transition={{
+        duration: 0.8,
+        repeat: Infinity,
+        ease: 'linear',
+      }}
+    />
   );
 }
 
@@ -47,18 +31,30 @@ export function PageLoader() {
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
       <div className="text-center">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-          className="w-16 h-16 mx-auto mb-4"
-        >
-          <div className="w-full h-full rounded-xl bg-gradient-to-br from-cyan-500 to-purple-600 flex items-center justify-center">
-            <span className="text-2xl font-bold text-white">G</span>
-          </div>
-        </motion.div>
-        <p className="text-dark-400">Loading...</p>
+        <div className="relative w-16 h-16 mx-auto mb-4">
+          {/* Outer ring */}
+          <motion.div
+            className="absolute inset-0 rounded-full border-3 border-transparent border-t-cyan-500 border-r-purple-600"
+            animate={{ rotate: 360 }}
+            transition={{
+              duration: 1,
+              repeat: Infinity,
+              ease: 'linear',
+            }}
+          />
+          {/* Inner ring */}
+          <motion.div
+            className="absolute inset-2 rounded-full border-3 border-transparent border-t-purple-600 border-l-cyan-500"
+            animate={{ rotate: -360 }}
+            transition={{
+              duration: 0.8,
+              repeat: Infinity,
+              ease: 'linear',
+            }}
+          />
+        </div>
+        <p className="text-dark-400 font-medium">Loading...</p>
       </div>
     </div>
   );
 }
-

@@ -18,6 +18,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { getAllUsers, updateUserRole, deleteUser } from '@/lib/firebase/db';
 import { useAuthStore } from '@/store/authStore';
 import { hasPermission, type User, type UserRole } from '@/types';
+import Link from 'next/link';
 
 const ROLE_OPTIONS: { value: UserRole; label: string; color: string; description: string }[] = [
   { value: 'player', label: 'Player', color: 'bg-gray-500', description: 'Regular user with no admin privileges' },
@@ -185,17 +186,23 @@ export default function AdminUsersPage() {
                 transition={{ delay: index * 0.03 }}
               >
                 <Card className="flex items-center gap-4 p-4 bg-gray-900 border-gray-800 hover:border-gray-700 transition-colors">
-                  <Avatar
-                    src={user.avatar}
-                    alt={user.displayName}
-                    size="md"
-                  />
+                  <Link href={`/users/${user.id}`} className="shrink-0">
+                    <Avatar
+                      src={user.avatar}
+                      alt={user.displayName}
+                      size="md"
+                      className="cursor-pointer"
+                    />
+                  </Link>
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="font-medium text-white truncate">
+                      <Link 
+                        href={`/users/${user.id}`}
+                        className="font-medium text-white truncate hover:text-cyan-400 transition-colors"
+                      >
                         {user.displayName}
-                      </p>
+                      </Link>
                       {user.id === currentUser?.id && (
                         <span className="text-xs text-gray-500">(you)</span>
                       )}

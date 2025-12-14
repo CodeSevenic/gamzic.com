@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { ArrowLeftIcon, PhotoIcon } from '@heroicons/react/24/outline';
@@ -10,23 +10,33 @@ import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
-import { useAuthStore } from '@/store/authStore';
-import { createTournament } from '@/lib/firebase/db';
+import { PageLoader } from '@/components/ui/LoadingSpinner';
+import { getTournament, updateTournament } from '@/lib/firebase/db';
 import { uploadTournamentBanner } from '@/lib/firebase/storage';
-import { type TournamentType } from '@/types';
+import { type Tournament, type TournamentType, type TournamentStatus } from '@/types';
 import { useGames } from '@/hooks/useGames';
 
-export default function CreateTournamentPage() {
+const formatDateForInput = (date: Date): string => {
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+export default function EditTournamentPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
+  const params = useParams();
+  const tournamentId = params.id as string;
   const { gameOptions } = useGames();
-  const [isLoading, setIsLoading] = useState(false);
-  
+
+  const [tournament, setTournament] = useState<Tournament | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
   // Form fields
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [game, setGame] = useState('');
   const [type, setType] = useState<TournamentType>('solo');
+  const [status, setStatus] = useState<TournamentStatus>('draft');
   const [rules, setRules] = useState('');
   const [prizeDescription, setPrizeDescription] = useState('');
   const [maxParticipants, setMaxParticipants] = useState('');
@@ -35,6 +45,41 @@ export default function CreateTournamentPage() {
   const [registrationDeadline, setRegistrationDeadline] = useState('');
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchTournament = async () => {
+      try {
+        const fetchedTournament = await getTournament(tournamentId);
+        if (!fetchedTournament) {
+          toast.error('Tournament not found');
+          router.push('/admin/tournaments');
+          return;
+        }
+        setTournament(fetchedTournament);
+        setTitle(fetchedTournament.title);
+        setDescription(fetchedTournament.description || '');
+        setGame(fetchedTournament.game);
+        setType(fetchedTournament.type);
+        setStatus(fetchedTournament.status);
+        setRules(fetchedTournament.rules || '');
+        setPrizeDescription(fetchedTournament.prizeDescription || '');
+        setMaxParticipants(fetchedTournament.maxParticipants?.toString() || '');
+        setDateStart(formatDateForInput(fetchedTournament.dateStart));
+        setDateEnd(formatDateForInput(fetchedTournament.dateEnd));
+        setRegistrationDeadline(formatDateForInput(fetchedTournament.registrationDeadline));
+        if (fetchedTournament.bannerImage) {
+          setBannerPreview(fetchedTournament.bannerImage);
+        }
+      } catch (error) {
+        console.error('Error fetching tournament:', error);
+        toast.error('Failed to load tournament');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTournament();
+  }, [tournamentId, router]);
 
   const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -50,7 +95,6 @@ export default function CreateTournamentPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
 
     if (!title.trim()) {
       toast.error('Title is required');
@@ -65,38 +109,43 @@ export default function CreateTournamentPage() {
       return;
     }
 
-    setIsLoading(true);
+    setIsSaving(true);
     try {
-      const tournamentId = await createTournament({
+      let bannerImage = tournament?.bannerImage;
+
+      // Upload new banner if provided
+      if (bannerFile) {
+        bannerImage = await uploadTournamentBanner(tournamentId, bannerFile);
+      }
+
+      await updateTournament(tournamentId, {
         title: title.trim(),
         description: description.trim(),
         game,
         type,
+        status,
         rules: rules.trim(),
         prizeDescription: prizeDescription.trim(),
         maxParticipants: maxParticipants ? parseInt(maxParticipants) : undefined,
         dateStart: new Date(dateStart),
         dateEnd: new Date(dateEnd),
         registrationDeadline: new Date(registrationDeadline),
-        participants: [],
-        createdBy: user.id,
-        status: 'registration',
+        bannerImage,
       });
 
-      // Upload banner if provided
-      if (bannerFile) {
-        await uploadTournamentBanner(tournamentId, bannerFile);
-      }
-
-      toast.success('Tournament created successfully!');
+      toast.success('Tournament updated successfully!');
       router.push('/admin/tournaments');
     } catch (error) {
-      toast.error('Failed to create tournament');
+      toast.error('Failed to update tournament');
       console.error(error);
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
+
+  if (isLoading) {
+    return <PageLoader />;
+  }
 
   return (
     <div className="p-6 max-w-3xl">
@@ -114,13 +163,13 @@ export default function CreateTournamentPage() {
         animate={{ opacity: 1, y: 0 }}
       >
         <Card variant="glass" padding="lg">
-          <h1 className="text-2xl font-bold text-white mb-6">Create Tournament</h1>
+          <h1 className="text-2xl font-bold text-white mb-6">Edit Tournament</h1>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Banner Upload */}
             <div>
               <label className="block text-sm font-medium text-dark-200 mb-1.5">
-                Banner Image (optional)
+                Banner Image
               </label>
               <label className="cursor-pointer block">
                 <input
@@ -182,6 +231,19 @@ export default function CreateTournamentPage() {
               />
             </div>
 
+            <Select
+              label="Status"
+              options={[
+                { value: 'draft', label: 'Draft' },
+                { value: 'registration', label: 'Registration Open' },
+                { value: 'in_progress', label: 'In Progress' },
+                { value: 'completed', label: 'Completed' },
+                { value: 'cancelled', label: 'Cancelled' },
+              ]}
+              value={status}
+              onChange={(e) => setStatus(e.target.value as TournamentStatus)}
+            />
+
             <Input
               label="Max Participants (optional)"
               type="number"
@@ -231,12 +293,21 @@ export default function CreateTournamentPage() {
               />
             </div>
 
+            {/* Participants Info */}
+            {tournament && tournament.participants.length > 0 && (
+              <div className="p-4 bg-dark-700/50 rounded-lg">
+                <p className="text-sm text-dark-400">
+                  <span className="text-white font-medium">{tournament.participants.length}</span> participant(s) registered
+                </p>
+              </div>
+            )}
+
             <div className="flex justify-end gap-3">
               <Button variant="ghost" onClick={() => router.back()}>
                 Cancel
               </Button>
-              <Button type="submit" isLoading={isLoading}>
-                Create Tournament
+              <Button type="submit" isLoading={isSaving}>
+                Save Changes
               </Button>
             </div>
           </form>

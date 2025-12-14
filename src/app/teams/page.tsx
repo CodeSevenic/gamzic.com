@@ -11,10 +11,12 @@ import { Input } from '@/components/ui/Input';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import { useAuthStore } from '@/store/authStore';
 import { getTeams, getSchool } from '@/lib/firebase/db';
-import { GAMES, type Team, type School } from '@/types';
+import { type Team, type School } from '@/types';
+import { useGames } from '@/hooks/useGames';
 
 export default function TeamsPage() {
   const { user } = useAuthStore();
+  const { gameOptions, getGameInfo } = useGames();
   const [teams, setTeams] = useState<Team[]>([]);
   const [schools, setSchools] = useState<Record<string, School>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -98,9 +100,9 @@ export default function TeamsPage() {
           className="bg-dark-800 border border-dark-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-cyan-500"
         >
           <option value="all">All Games</option>
-          {GAMES.map((game) => (
-            <option key={game.id} value={game.id}>
-              {game.icon} {game.name}
+          {gameOptions.map((game) => (
+            <option key={game.value} value={game.value}>
+              {game.label}
             </option>
           ))}
         </select>
@@ -125,7 +127,7 @@ export default function TeamsPage() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredTeams.map((team, index) => {
             const school = schools[team.schoolId];
-            const game = GAMES.find((g) => g.id === team.game);
+            const game = getGameInfo(team.game);
 
             return (
               <motion.div
@@ -158,7 +160,7 @@ export default function TeamsPage() {
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="font-bold text-white truncate">{team.name}</h3>
                         <Badge variant="info" size="sm">
-                          {game?.icon} {game?.name || team.game}
+                          {game.icon} {game.name}
                         </Badge>
                       </div>
 

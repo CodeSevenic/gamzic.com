@@ -14,7 +14,8 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import { getTournaments } from '@/lib/firebase/db';
-import { GAMES, type Tournament, type TournamentStatus } from '@/types';
+import { type Tournament, type TournamentStatus } from '@/types';
+import { useGames } from '@/hooks/useGames';
 
 const statusColors: Record<TournamentStatus, 'success' | 'warning' | 'info' | 'danger' | 'default'> = {
   draft: 'default',
@@ -33,6 +34,7 @@ const statusLabels: Record<TournamentStatus, string> = {
 };
 
 export default function TournamentsPage() {
+  const { gameOptions, getGameInfo } = useGames();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | TournamentStatus>('all');
@@ -90,9 +92,9 @@ export default function TournamentsPage() {
             className="bg-dark-800 border border-dark-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-cyan-500"
           >
             <option value="all">All Games</option>
-            {GAMES.map((game) => (
-              <option key={game.id} value={game.id}>
-                {game.icon} {game.name}
+            {gameOptions.map((game) => (
+              <option key={game.value} value={game.value}>
+                {game.label}
               </option>
             ))}
           </select>
@@ -109,7 +111,7 @@ export default function TournamentsPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {tournaments.map((tournament, index) => {
-            const game = GAMES.find((g) => g.id === tournament.game);
+            const game = getGameInfo(tournament.game);
 
             return (
               <motion.div
@@ -130,7 +132,7 @@ export default function TournamentsPage() {
                         />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-6xl">{game?.icon || '🎮'}</span>
+                          <span className="text-6xl">{game.icon}</span>
                         </div>
                       )}
                       <div className="absolute top-2 right-2">
@@ -151,11 +153,9 @@ export default function TournamentsPage() {
                         </Badge>
                       </div>
 
-                      {game && (
-                        <p className="text-sm text-dark-400 mb-3">
-                          {game.icon} {game.name}
-                        </p>
-                      )}
+                      <p className="text-sm text-dark-400 mb-3">
+                        {game.icon} {game.name}
+                      </p>
 
                       <div className="space-y-2 text-sm">
                         <div className="flex items-center gap-2 text-dark-400">
