@@ -17,10 +17,13 @@ interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:from-cyan-400 hover:to-blue-500 shadow-lg shadow-cyan-500/25',
-  secondary: 'bg-dark-700 text-white border border-dark-500 hover:bg-dark-600 hover:border-cyan-500/50',
+  primary:
+    'bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:from-cyan-400 hover:to-blue-500 shadow-lg shadow-cyan-500/25',
+  secondary:
+    'bg-dark-700 text-white border border-dark-500 hover:bg-dark-600 hover:border-cyan-500/50',
   ghost: 'bg-transparent text-dark-200 hover:bg-dark-800 hover:text-white',
-  danger: 'bg-gradient-to-r from-red-500 to-pink-600 text-white hover:from-red-400 hover:to-pink-500',
+  danger:
+    'bg-gradient-to-r from-red-500 to-pink-600 text-white hover:from-red-400 hover:to-pink-500',
   neon: 'bg-transparent text-cyan-400 border-2 border-cyan-400 hover:bg-cyan-400/10 hover:shadow-neon-blue',
 };
 
@@ -54,7 +57,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         className={`
           inline-flex items-center justify-center gap-2 rounded-lg font-semibold
           transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/50
-          disabled:opacity-50 disabled:cursor-not-allowed
+          disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer
           ${variantStyles[variant]}
           ${sizeStyles[size]}
           ${fullWidth ? 'w-full' : ''}
@@ -97,4 +100,3 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 );
 
 Button.displayName = 'Button';
-

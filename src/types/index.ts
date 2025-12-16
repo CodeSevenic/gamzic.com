@@ -220,7 +220,8 @@ export interface Reaction {
 export interface Post {
   id: string;
   content: string;
-  imageUrl?: string;
+  imageUrl?: string; // Single image (legacy support)
+  images?: string[]; // Multiple images (new feature)
   videoUrl?: string;
   youtubeVideoId?: string;
   // Who actually created the post (the admin who made it)
@@ -254,7 +255,7 @@ export interface Comment {
 }
 
 // Notification Types
-export type NotificationType = 
+export type NotificationType =
   | 'comment_reply'
   | 'tournament_update'
   | 'match_reminder'
@@ -318,3 +319,59 @@ export const GRADE_YEARS = [
   'Other',
 ] as const;
 
+// Feed Story Types (for the stories carousel)
+export type FeedStoryType = 'announcement' | 'highlight' | 'promotion' | 'update' | 'event';
+
+export interface FeedStory {
+  id: string;
+  type: FeedStoryType;
+  title: string;
+  subtitle?: string;
+  imageUrl?: string;
+  // Link to related content
+  linkUrl?: string;
+  linkType?: 'match' | 'tournament' | 'post' | 'user' | 'external';
+  linkId?: string; // ID of the related item (matchId, tournamentId, etc.)
+  // Styling
+  badge?: string;
+  badgeColor?: 'red' | 'yellow' | 'cyan' | 'purple' | 'green';
+  gradient?: string; // Tailwind gradient classes
+  // Display options
+  isActive: boolean;
+  isPriority: boolean; // Shows first in the carousel
+  // Scheduling
+  startDate?: Date;
+  endDate?: Date;
+  // Meta
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Sponsored Content Types (for ads in feed)
+export type SponsoredContentType = 'banner' | 'native' | 'promotion' | 'featured';
+
+export interface SponsoredContent {
+  id: string;
+  type: SponsoredContentType;
+  title: string;
+  description?: string;
+  imageUrl?: string;
+  logoUrl?: string;
+  sponsorName: string;
+  ctaText?: string;
+  ctaUrl: string;
+  badge?: string;
+  gradient?: string;
+  // Display options
+  isActive: boolean;
+  // Scheduling
+  startDate?: Date;
+  endDate?: Date;
+  // Targeting (optional for future use)
+  targetGames?: string[];
+  // Meta
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
+}

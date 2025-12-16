@@ -18,6 +18,8 @@ import {
   PuzzlePieceIcon,
   ArrowLeftIcon,
   BuildingOffice2Icon,
+  SparklesIcon,
+  MegaphoneIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '@/store/authStore';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
@@ -28,14 +30,26 @@ import toast from 'react-hot-toast';
 const adminNav = [
   { name: 'Dashboard', href: '/admin', icon: HomeIcon, minRole: 'moderator' as const },
   { name: 'Posts', href: '/admin/posts', icon: DocumentTextIcon, minRole: 'moderator' as const },
+  { name: 'Feed Stories', href: '/admin/stories', icon: SparklesIcon, minRole: 'admin' as const },
+  { name: 'Sponsored', href: '/admin/sponsored', icon: MegaphoneIcon, minRole: 'admin' as const },
   { name: 'Tournaments', href: '/admin/tournaments', icon: TrophyIcon, minRole: 'admin' as const },
   { name: 'Matches', href: '/admin/matches', icon: PlayIcon, minRole: 'admin' as const },
   { name: 'Games', href: '/admin/games', icon: PuzzlePieceIcon, minRole: 'admin' as const },
   { name: 'Schools', href: '/admin/schools', icon: AcademicCapIcon, minRole: 'admin' as const },
   { name: 'Users', href: '/admin/users', icon: UserGroupIcon, minRole: 'admin' as const },
-  { name: 'Accounts', href: '/admin/accounts', icon: BuildingOffice2Icon, minRole: 'admin' as const },
+  {
+    name: 'Accounts',
+    href: '/admin/accounts',
+    icon: BuildingOffice2Icon,
+    minRole: 'admin' as const,
+  },
   { name: 'Reports', href: '/admin/reports', icon: FlagIcon, minRole: 'moderator' as const },
-  { name: 'Analytics', href: '/admin/analytics', icon: ChartBarIcon, minRole: 'super_admin' as const },
+  {
+    name: 'Analytics',
+    href: '/admin/analytics',
+    icon: ChartBarIcon,
+    minRole: 'super_admin' as const,
+  },
 ];
 
 const ROLE_LABELS = {
@@ -52,11 +66,7 @@ const ROLE_COLORS = {
   super_admin: 'text-orange-400',
 };
 
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, loading } = useAuthStore();
@@ -66,7 +76,7 @@ export default function AdminLayout({
 
   useEffect(() => {
     if (isLoginPage) return;
-    
+
     if (!loading && (!user || !hasPermission(user.role, 'moderator'))) {
       router.push('/admin/login');
     }
@@ -106,12 +116,8 @@ export default function AdminLayout({
               <ShieldCheckIcon className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white">
-                Command Center
-              </h2>
-              <p className={`text-xs ${ROLE_COLORS[user.role]}`}>
-                {ROLE_LABELS[user.role]}
-              </p>
+              <h2 className="text-sm font-bold text-white">Command Center</h2>
+              <p className={`text-xs ${ROLE_COLORS[user.role]}`}>{ROLE_LABELS[user.role]}</p>
             </div>
           </div>
 
@@ -120,9 +126,9 @@ export default function AdminLayout({
             {adminNav.map((item) => {
               const isActive = pathname === item.href;
               const hasAccess = hasPermission(user.role, item.minRole);
-              
+
               if (!hasAccess) return null;
-              
+
               return (
                 <Link
                   key={item.name}
@@ -130,9 +136,10 @@ export default function AdminLayout({
                   className={`
                     flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
                     transition-colors
-                    ${isActive
-                      ? 'bg-orange-500/20 text-orange-400'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                    ${
+                      isActive
+                        ? 'bg-orange-500/20 text-orange-400'
+                        : 'text-gray-400 hover:text-white hover:bg-gray-800'
                     }
                   `}
                 >
@@ -151,15 +158,11 @@ export default function AdminLayout({
               {user.displayName.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">
-                {user.displayName}
-              </p>
-              <p className="text-xs text-gray-500 truncate">
-                {user.email}
-              </p>
+              <p className="text-sm font-medium text-white truncate">{user.displayName}</p>
+              <p className="text-xs text-gray-500 truncate">{user.email}</p>
             </div>
           </div>
-          
+
           {/* Back to App button */}
           <Link
             href="/feed"
@@ -168,7 +171,7 @@ export default function AdminLayout({
             <ArrowLeftIcon className="w-4 h-4" />
             Back to App
           </Link>
-          
+
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
@@ -180,10 +183,7 @@ export default function AdminLayout({
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 min-h-[calc(100vh-4rem)] bg-gray-950">
-        {children}
-      </div>
+      <div className="flex-1 min-h-[calc(100vh-4rem)] bg-gray-950">{children}</div>
     </div>
   );
 }
-

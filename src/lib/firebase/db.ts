@@ -35,6 +35,8 @@ import type {
   MatchParticipant,
   Game,
   ReactionType,
+  FeedStory,
+  SponsoredContent,
 } from '@/types';
 
 // Helper to check if db is available
@@ -86,7 +88,7 @@ export const followUser = async (userId: string, targetUserId: string): Promise<
   const firestore = getDb();
   const userRef = doc(firestore, 'users', userId);
   const targetRef = doc(firestore, 'users', targetUserId);
-  
+
   await updateDoc(userRef, {
     following: arrayUnion(targetUserId),
   });
@@ -99,7 +101,7 @@ export const unfollowUser = async (userId: string, targetUserId: string): Promis
   const firestore = getDb();
   const userRef = doc(firestore, 'users', userId);
   const targetRef = doc(firestore, 'users', targetUserId);
-  
+
   await updateDoc(userRef, {
     following: arrayRemove(targetUserId),
   });
@@ -116,15 +118,15 @@ export const getAllUsers = async (
 ): Promise<{ users: User[]; lastDoc: DocumentSnapshot | null }> => {
   const firestore = getDb();
   const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc')];
-  
+
   constraints.push(limit(limitCount));
   if (lastDoc) {
     constraints.push(startAfter(lastDoc));
   }
-  
+
   const usersQuery = query(collection(firestore, 'users'), ...constraints);
   const snapshot = await getDocs(usersQuery);
-  
+
   let users = snapshot.docs.map((doc) => {
     const data = doc.data();
     return {
@@ -134,7 +136,7 @@ export const getAllUsers = async (
       updatedAt: convertTimestamp(data.updatedAt),
     } as User;
   });
-  
+
   // Client-side search filtering (for simple implementation)
   if (searchQuery) {
     const query = searchQuery.toLowerCase();
@@ -145,7 +147,7 @@ export const getAllUsers = async (
         user.email.toLowerCase().includes(query)
     );
   }
-  
+
   return {
     users,
     lastDoc: snapshot.docs[snapshot.docs.length - 1] || null,
@@ -198,7 +200,9 @@ export const getSchool = async (schoolId: string): Promise<School | null> => {
   } as School;
 };
 
-export const createSchool = async (schoolData: Omit<School, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
+export const createSchool = async (
+  schoolData: Omit<School, 'id' | 'createdAt' | 'updatedAt'>
+): Promise<string> => {
   const firestore = getDb();
   const schoolRef = doc(collection(firestore, 'schools'));
   await setDoc(schoolRef, {
@@ -227,7 +231,7 @@ export const joinSchool = async (userId: string, schoolId: string): Promise<void
   const firestore = getDb();
   const userRef = doc(firestore, 'users', userId);
   const schoolRef = doc(firestore, 'schools', schoolId);
-  
+
   await updateDoc(userRef, { schoolId });
   await updateDoc(schoolRef, {
     members: arrayUnion(userId),
@@ -241,7 +245,7 @@ export const getTeams = async (schoolId?: string): Promise<Team[]> => {
   if (schoolId) {
     constraints.unshift(where('schoolId', '==', schoolId));
   }
-  
+
   const teamsQuery = query(collection(firestore, 'teams'), ...constraints);
   const snapshot = await getDocs(teamsQuery);
   return snapshot.docs.map((doc) => {
@@ -268,7 +272,9 @@ export const getTeam = async (teamId: string): Promise<Team | null> => {
   } as Team;
 };
 
-export const createTeam = async (teamData: Omit<Team, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
+export const createTeam = async (
+  teamData: Omit<Team, 'id' | 'createdAt' | 'updatedAt'>
+): Promise<string> => {
   const firestore = getDb();
   const teamRef = doc(collection(firestore, 'teams'));
   await setDoc(teamRef, {
@@ -276,19 +282,19 @@ export const createTeam = async (teamData: Omit<Team, 'id' | 'createdAt' | 'upda
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
-  
+
   // Add team to school
   if (teamData.schoolId) {
     await updateDoc(doc(firestore, 'schools', teamData.schoolId), {
       teams: arrayUnion(teamRef.id),
     });
   }
-  
+
   // Add team to captain's teams
   await updateDoc(doc(firestore, 'users', teamData.captainId), {
     teamsJoined: arrayUnion(teamRef.id),
   });
-  
+
   return teamRef.id;
 };
 
@@ -296,7 +302,7 @@ export const joinTeam = async (userId: string, teamId: string): Promise<void> =>
   const firestore = getDb();
   const teamRef = doc(firestore, 'teams', teamId);
   const userRef = doc(firestore, 'users', userId);
-  
+
   await updateDoc(teamRef, {
     members: arrayUnion(userId),
   });
@@ -309,7 +315,7 @@ export const leaveTeam = async (userId: string, teamId: string): Promise<void> =
   const firestore = getDb();
   const teamRef = doc(firestore, 'teams', teamId);
   const userRef = doc(firestore, 'users', userId);
-  
+
   await updateDoc(teamRef, {
     members: arrayRemove(userId),
   });
@@ -327,22 +333,22 @@ export const getTournaments = async (
 ): Promise<{ tournaments: Tournament[]; lastDoc: DocumentSnapshot | null }> => {
   const firestore = getDb();
   const constraints: QueryConstraint[] = [orderBy('dateStart', 'desc')];
-  
+
   if (status) {
     constraints.unshift(where('status', '==', status));
   }
   if (game) {
     constraints.unshift(where('game', '==', game));
   }
-  
+
   constraints.push(limit(limitCount));
   if (lastDoc) {
     constraints.push(startAfter(lastDoc));
   }
-  
+
   const tournamentsQuery = query(collection(firestore, 'tournaments'), ...constraints);
   const snapshot = await getDocs(tournamentsQuery);
-  
+
   const tournaments = snapshot.docs.map((doc) => {
     const data = doc.data();
     return {
@@ -355,7 +361,7 @@ export const getTournaments = async (
       updatedAt: convertTimestamp(data.updatedAt),
     } as Tournament;
   });
-  
+
   return {
     tournaments,
     lastDoc: snapshot.docs[snapshot.docs.length - 1] || null,
@@ -391,7 +397,10 @@ export const createTournament = async (
   return tournamentRef.id;
 };
 
-export const updateTournament = async (tournamentId: string, data: Partial<Tournament>): Promise<void> => {
+export const updateTournament = async (
+  tournamentId: string,
+  data: Partial<Tournament>
+): Promise<void> => {
   const firestore = getDb();
   const tournamentRef = doc(firestore, 'tournaments', tournamentId);
   await updateDoc(tournamentRef, {
@@ -413,7 +422,7 @@ export const registerForTournament = async (
   const firestore = getDb();
   const tournamentRef = doc(firestore, 'tournaments', tournamentId);
   const userRef = doc(firestore, 'users', userId);
-  
+
   await updateDoc(tournamentRef, {
     participants: arrayUnion(participantId),
   });
@@ -430,7 +439,7 @@ export const unregisterFromTournament = async (
   const firestore = getDb();
   const tournamentRef = doc(firestore, 'tournaments', tournamentId);
   const userRef = doc(firestore, 'users', userId);
-  
+
   await updateDoc(tournamentRef, {
     participants: arrayRemove(participantId),
   });
@@ -453,7 +462,9 @@ export const getBracket = async (bracketId: string): Promise<Bracket | null> => 
   } as Bracket;
 };
 
-export const createBracket = async (bracketData: Omit<Bracket, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
+export const createBracket = async (
+  bracketData: Omit<Bracket, 'id' | 'createdAt' | 'updatedAt'>
+): Promise<string> => {
   const firestore = getDb();
   const bracketRef = doc(collection(firestore, 'brackets'));
   await setDoc(bracketRef, {
@@ -461,12 +472,12 @@ export const createBracket = async (bracketData: Omit<Bracket, 'id' | 'createdAt
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
-  
+
   // Update tournament with bracket ID
   await updateDoc(doc(firestore, 'tournaments', bracketData.tournamentId), {
     bracketId: bracketRef.id,
   });
-  
+
   return bracketRef.id;
 };
 
@@ -483,14 +494,14 @@ export const updateBracket = async (bracketId: string, data: Partial<Bracket>): 
 export const getGames = async (activeOnly = true): Promise<Game[]> => {
   const firestore = getDb();
   const constraints: QueryConstraint[] = [orderBy('name', 'asc')];
-  
+
   if (activeOnly) {
     constraints.unshift(where('isActive', '==', true));
   }
-  
+
   const gamesQuery = query(collection(firestore, 'games'), ...constraints);
   const snapshot = await getDocs(gamesQuery);
-  
+
   return snapshot.docs.map((doc) => {
     const data = doc.data();
     return {
@@ -546,11 +557,11 @@ export const deleteGame = async (gameId: string): Promise<void> => {
 export const seedDefaultGames = async (): Promise<void> => {
   const firestore = getDb();
   const { DEFAULT_GAMES } = await import('@/types');
-  
+
   for (const game of DEFAULT_GAMES) {
     const gameRef = doc(firestore, 'games', game.id);
     const existing = await getDoc(gameRef);
-    
+
     if (!existing.exists()) {
       await setDoc(gameRef, {
         name: game.name,
@@ -572,22 +583,22 @@ export const getMatches = async (
 ): Promise<{ matches: Match[]; lastDoc: DocumentSnapshot | null }> => {
   const firestore = getDb();
   const constraints: QueryConstraint[] = [orderBy('scheduledTime', 'desc')];
-  
+
   if (status) {
     constraints.unshift(where('status', '==', status));
   }
   if (game) {
     constraints.unshift(where('game', '==', game));
   }
-  
+
   constraints.push(limit(limitCount));
   if (lastDoc) {
     constraints.push(startAfter(lastDoc));
   }
-  
+
   const matchesQuery = query(collection(firestore, 'matches'), ...constraints);
   const snapshot = await getDocs(matchesQuery);
-  
+
   const matches = snapshot.docs.map((doc) => {
     const data = doc.data();
     return {
@@ -595,12 +606,14 @@ export const getMatches = async (
       ...data,
       scheduledTime: data.scheduledTime ? convertTimestamp(data.scheduledTime) : undefined,
       completedAt: data.completedAt ? convertTimestamp(data.completedAt) : undefined,
-      registrationDeadline: data.registrationDeadline ? convertTimestamp(data.registrationDeadline) : undefined,
+      registrationDeadline: data.registrationDeadline
+        ? convertTimestamp(data.registrationDeadline)
+        : undefined,
       createdAt: convertTimestamp(data.createdAt),
       updatedAt: convertTimestamp(data.updatedAt),
     } as Match;
   });
-  
+
   return {
     matches,
     lastDoc: snapshot.docs[snapshot.docs.length - 1] || null,
@@ -617,7 +630,9 @@ export const getMatch = async (matchId: string): Promise<Match | null> => {
     ...data,
     scheduledTime: data.scheduledTime ? convertTimestamp(data.scheduledTime) : undefined,
     completedAt: data.completedAt ? convertTimestamp(data.completedAt) : undefined,
-    registrationDeadline: data.registrationDeadline ? convertTimestamp(data.registrationDeadline) : undefined,
+    registrationDeadline: data.registrationDeadline
+      ? convertTimestamp(data.registrationDeadline)
+      : undefined,
     createdAt: convertTimestamp(data.createdAt),
     updatedAt: convertTimestamp(data.updatedAt),
   } as Match;
@@ -650,37 +665,34 @@ export const deleteMatch = async (matchId: string): Promise<void> => {
   await deleteDoc(doc(firestore, 'matches', matchId));
 };
 
-export const joinMatch = async (
-  matchId: string,
-  participant: MatchParticipant
-): Promise<void> => {
+export const joinMatch = async (matchId: string, participant: MatchParticipant): Promise<void> => {
   const firestore = getDb();
   const matchRef = doc(firestore, 'matches', matchId);
   const matchDoc = await getDoc(matchRef);
-  
+
   if (!matchDoc.exists()) {
     throw new Error('Match not found');
   }
-  
+
   const matchData = matchDoc.data();
   const participants = matchData.participants || [];
-  
+
   // Check if already joined
   const alreadyJoined = participants.some(
-    (p: MatchParticipant) => 
+    (p: MatchParticipant) =>
       (p.oduserId && p.oduserId === participant.oduserId) ||
       (p.teamId && p.teamId === participant.teamId)
   );
-  
+
   if (alreadyJoined) {
     throw new Error('Already joined this match');
   }
-  
+
   // Check max participants
   if (participants.length >= matchData.maxParticipants) {
     throw new Error('Match is full');
   }
-  
+
   await updateDoc(matchRef, {
     participants: arrayUnion({
       ...participant,
@@ -688,7 +700,7 @@ export const joinMatch = async (
     }),
     updatedAt: serverTimestamp(),
   });
-  
+
   // If match is full, update status to scheduled
   if (participants.length + 1 >= matchData.maxParticipants) {
     await updateDoc(matchRef, {
@@ -705,23 +717,21 @@ export const leaveMatch = async (
   const firestore = getDb();
   const matchRef = doc(firestore, 'matches', matchId);
   const matchDoc = await getDoc(matchRef);
-  
+
   if (!matchDoc.exists()) {
     throw new Error('Match not found');
   }
-  
+
   const matchData = matchDoc.data();
   const participants = matchData.participants || [];
-  
+
   // Find the participant to remove
-  const updatedParticipants = participants.filter(
-    (p: MatchParticipant) => {
-      if (oduserId) return p.oduserId !== oduserId;
-      if (teamId) return p.teamId !== teamId;
-      return true;
-    }
-  );
-  
+  const updatedParticipants = participants.filter((p: MatchParticipant) => {
+    if (oduserId) return p.oduserId !== oduserId;
+    if (teamId) return p.teamId !== teamId;
+    return true;
+  });
+
   await updateDoc(matchRef, {
     participants: updatedParticipants,
     status: 'open', // Reopen the match if someone leaves
@@ -736,18 +746,18 @@ export const updateMatchScores = async (
 ): Promise<void> => {
   const firestore = getDb();
   const matchRef = doc(firestore, 'matches', matchId);
-  
+
   const updateData: Record<string, unknown> = {
     scores,
     updatedAt: serverTimestamp(),
   };
-  
+
   if (winnerId) {
     updateData.winnerId = winnerId;
     updateData.status = 'completed';
     updateData.completedAt = serverTimestamp();
   }
-  
+
   await updateDoc(matchRef, updateData);
 };
 
@@ -759,7 +769,7 @@ export const getPosts = async (
 ): Promise<{ posts: Post[]; lastDoc: DocumentSnapshot | null }> => {
   const firestore = getDb();
   const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc')];
-  
+
   if (filters?.schoolId) {
     constraints.unshift(where('schoolId', '==', filters.schoolId));
   }
@@ -769,15 +779,15 @@ export const getPosts = async (
   if (filters?.tournamentId) {
     constraints.unshift(where('tournamentId', '==', filters.tournamentId));
   }
-  
+
   constraints.push(limit(limitCount));
   if (lastDoc) {
     constraints.push(startAfter(lastDoc));
   }
-  
+
   const postsQuery = query(collection(firestore, 'posts'), ...constraints);
   const snapshot = await getDocs(postsQuery);
-  
+
   const posts = snapshot.docs.map((doc) => {
     const data = doc.data();
     return {
@@ -787,7 +797,7 @@ export const getPosts = async (
       updatedAt: convertTimestamp(data.updatedAt),
     } as Post;
   });
-  
+
   return {
     posts,
     lastDoc: snapshot.docs[snapshot.docs.length - 1] || null,
@@ -807,7 +817,9 @@ export const getPost = async (postId: string): Promise<Post | null> => {
   } as Post;
 };
 
-export const createPost = async (postData: Omit<Post, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
+export const createPost = async (
+  postData: Omit<Post, 'id' | 'createdAt' | 'updatedAt'>
+): Promise<string> => {
   const firestore = getDb();
   const postRef = doc(collection(firestore, 'posts'));
   await setDoc(postRef, {
@@ -839,7 +851,7 @@ export const getPostsByAuthor = async (
   lastDoc?: DocumentSnapshot
 ): Promise<{ posts: Post[]; lastDoc: DocumentSnapshot | null }> => {
   const firestore = getDb();
-  
+
   try {
     // Query posts where authorId matches OR createdBy matches (for posts without authorId)
     // We don't use orderBy to avoid needing composite indexes - we sort client-side
@@ -847,13 +859,13 @@ export const getPostsByAuthor = async (
       collection(firestore, 'posts'),
       where('createdBy', '==', authorId)
     );
-    
+
     // First get posts created by this user (most common case)
     const createdBySnapshot = await getDocs(createdByQuery);
-    
+
     // Merge and dedupe posts
     const postsMap = new Map<string, Post>();
-    
+
     createdBySnapshot.docs.forEach((doc) => {
       const data = doc.data();
       if (data) {
@@ -865,16 +877,13 @@ export const getPostsByAuthor = async (
         } as Post);
       }
     });
-    
+
     // Also try to get posts where authorId is set (for "post as" feature)
     // This might fail if no posts have authorId set yet, so we wrap in try-catch
     try {
-      const authorQuery = query(
-        collection(firestore, 'posts'),
-        where('authorId', '==', authorId)
-      );
+      const authorQuery = query(collection(firestore, 'posts'), where('authorId', '==', authorId));
       const authorSnapshot = await getDocs(authorQuery);
-      
+
       authorSnapshot.docs.forEach((doc) => {
         if (!postsMap.has(doc.id)) {
           const data = doc.data();
@@ -892,12 +901,12 @@ export const getPostsByAuthor = async (
       // authorId query might fail if index doesn't exist yet - that's okay
       console.log('Note: authorId query skipped (index may not exist yet)');
     }
-    
+
     // Sort by createdAt descending (client-side to avoid index requirement)
-    const posts = Array.from(postsMap.values()).sort(
-      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-    ).slice(0, limitCount);
-    
+    const posts = Array.from(postsMap.values())
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, limitCount);
+
     return {
       posts,
       lastDoc: null, // Pagination is complex with merged queries
@@ -911,15 +920,15 @@ export const getPostsByAuthor = async (
 // Get accounts that the user can manage/post as
 export const getManageableAccounts = async (userId: string): Promise<User[]> => {
   const firestore = getDb();
-  
+
   // Get accounts where userId is in managedBy array
   const managedQuery = query(
     collection(firestore, 'users'),
     where('managedBy', 'array-contains', userId)
   );
-  
+
   const snapshot = await getDocs(managedQuery);
-  
+
   return snapshot.docs.map((doc) => {
     const data = doc.data();
     return {
@@ -936,16 +945,20 @@ export const getBusinessAccounts = async (
   accountType?: 'business' | 'sponsor' | 'organization'
 ): Promise<User[]> => {
   const firestore = getDb();
-  
+
   // Query without orderBy to avoid needing a composite index
   // We'll sort client-side instead
   const accountsQuery = query(
     collection(firestore, 'users'),
-    where('accountType', 'in', accountType ? [accountType] : ['business', 'sponsor', 'organization'])
+    where(
+      'accountType',
+      'in',
+      accountType ? [accountType] : ['business', 'sponsor', 'organization']
+    )
   );
-  
+
   const snapshot = await getDocs(accountsQuery);
-  
+
   const accounts = snapshot.docs.map((doc) => {
     const data = doc.data();
     return {
@@ -955,31 +968,29 @@ export const getBusinessAccounts = async (
       updatedAt: convertTimestamp(data.updatedAt),
     } as User;
   });
-  
+
   // Sort by displayName client-side
   return accounts.sort((a, b) => a.displayName.localeCompare(b.displayName));
 };
 
 // Create a business/sponsor account
-export const createBusinessAccount = async (
-  accountData: {
-    displayName: string;
-    email: string;
-    accountType: 'business' | 'sponsor' | 'organization';
-    businessInfo?: {
-      companyName?: string;
-      website?: string;
-      industry?: string;
-      description?: string;
-      contactEmail?: string;
-    };
-    avatar?: string;
-    managedBy: string[];
-  }
-): Promise<string> => {
+export const createBusinessAccount = async (accountData: {
+  displayName: string;
+  email: string;
+  accountType: 'business' | 'sponsor' | 'organization';
+  businessInfo?: {
+    companyName?: string;
+    website?: string;
+    industry?: string;
+    description?: string;
+    contactEmail?: string;
+  };
+  avatar?: string;
+  managedBy: string[];
+}): Promise<string> => {
   const firestore = getDb();
   const accountRef = doc(collection(firestore, 'users'));
-  
+
   await setDoc(accountRef, {
     ...accountData,
     fullName: accountData.displayName,
@@ -997,7 +1008,7 @@ export const createBusinessAccount = async (
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
-  
+
   return accountRef.id;
 };
 
@@ -1021,12 +1032,12 @@ export const reactToPost = async (
   const firestore = getDb();
   const postRef = doc(firestore, 'posts', postId);
   const postDoc = await getDoc(postRef);
-  
+
   if (!postDoc.exists()) return;
-  
+
   const reactions = postDoc.data().reactions || [];
   const existingIndex = reactions.findIndex((r: { userId: string }) => r.userId === userId);
-  
+
   if (existingIndex >= 0) {
     // Remove existing reaction if same type, or update if different
     if (reactions[existingIndex].type === reactionType) {
@@ -1037,7 +1048,7 @@ export const reactToPost = async (
   } else {
     reactions.push({ userId, type: reactionType, createdAt: new Date() });
   }
-  
+
   await updateDoc(postRef, { reactions });
 };
 
@@ -1061,7 +1072,9 @@ export const getComments = async (postId: string): Promise<Comment[]> => {
   });
 };
 
-export const createComment = async (commentData: Omit<Comment, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
+export const createComment = async (
+  commentData: Omit<Comment, 'id' | 'createdAt' | 'updatedAt'>
+): Promise<string> => {
   const firestore = getDb();
   const commentRef = doc(collection(firestore, 'comments'));
   await setDoc(commentRef, {
@@ -1069,19 +1082,19 @@ export const createComment = async (commentData: Omit<Comment, 'id' | 'createdAt
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
-  
+
   // Increment comment count on post
   await updateDoc(doc(firestore, 'posts', commentData.postId), {
     commentCount: increment(1),
   });
-  
+
   return commentRef.id;
 };
 
 export const deleteComment = async (commentId: string, postId: string): Promise<void> => {
   const firestore = getDb();
   await deleteDoc(doc(firestore, 'comments', commentId));
-  
+
   // Decrement comment count on post
   await updateDoc(doc(firestore, 'posts', postId), {
     commentCount: increment(-1),
@@ -1096,18 +1109,21 @@ export const reportComment = async (commentId: string): Promise<void> => {
 };
 
 // ============ NOTIFICATIONS ============
-export const getNotifications = async (userId: string, unreadOnly = false): Promise<Notification[]> => {
+export const getNotifications = async (
+  userId: string,
+  unreadOnly = false
+): Promise<Notification[]> => {
   const firestore = getDb();
   const constraints: QueryConstraint[] = [
     where('userId', '==', userId),
     orderBy('createdAt', 'desc'),
     limit(50),
   ];
-  
+
   if (unreadOnly) {
     constraints.splice(1, 0, where('isRead', '==', false));
   }
-  
+
   const notificationsQuery = query(collection(firestore, 'notifications'), ...constraints);
   const snapshot = await getDocs(notificationsQuery);
   return snapshot.docs.map((doc) => {
@@ -1147,10 +1163,8 @@ export const markAllNotificationsRead = async (userId: string): Promise<void> =>
     where('isRead', '==', false)
   );
   const snapshot = await getDocs(notificationsQuery);
-  
-  const updates = snapshot.docs.map((doc) =>
-    updateDoc(doc.ref, { isRead: true })
-  );
+
+  const updates = snapshot.docs.map((doc) => updateDoc(doc.ref, { isRead: true }));
   await Promise.all(updates);
 };
 
@@ -1163,7 +1177,7 @@ export const subscribeToMatch = (
 ): Unsubscribe => {
   const firestore = getDb();
   const matchRef = doc(firestore, 'matches', matchId);
-  
+
   return onSnapshot(matchRef, (snapshot) => {
     if (!snapshot.exists()) {
       callback(null);
@@ -1175,7 +1189,9 @@ export const subscribeToMatch = (
       ...data,
       scheduledTime: data.scheduledTime ? convertTimestamp(data.scheduledTime) : undefined,
       completedAt: data.completedAt ? convertTimestamp(data.completedAt) : undefined,
-      registrationDeadline: data.registrationDeadline ? convertTimestamp(data.registrationDeadline) : undefined,
+      registrationDeadline: data.registrationDeadline
+        ? convertTimestamp(data.registrationDeadline)
+        : undefined,
       createdAt: convertTimestamp(data.createdAt),
       updatedAt: convertTimestamp(data.updatedAt),
     } as Match);
@@ -1189,7 +1205,7 @@ export const subscribeToTournament = (
 ): Unsubscribe => {
   const firestore = getDb();
   const tournamentRef = doc(firestore, 'tournaments', tournamentId);
-  
+
   return onSnapshot(tournamentRef, (snapshot) => {
     if (!snapshot.exists()) {
       callback(null);
@@ -1211,11 +1227,11 @@ export const subscribeToTournament = (
 // Get multiple users by IDs (for displaying avatars)
 export const getUsersByIds = async (userIds: string[]): Promise<Record<string, User>> => {
   if (userIds.length === 0) return {};
-  
+
   const firestore = getDb();
   const userPromises = userIds.map((id) => getDoc(doc(firestore, 'users', id)));
   const snapshots = await Promise.all(userPromises);
-  
+
   const users: Record<string, User> = {};
   snapshots.forEach((snapshot) => {
     if (snapshot.exists()) {
@@ -1228,6 +1244,258 @@ export const getUsersByIds = async (userIds: string[]): Promise<Record<string, U
       } as User;
     }
   });
-  
+
   return users;
+};
+
+// ============ FEED STORIES ============
+export const getFeedStories = async (activeOnly = true): Promise<FeedStory[]> => {
+  const firestore = getDb();
+
+  try {
+    // Simple query without composite index requirement
+    const storiesQuery = query(collection(firestore, 'feedStories'));
+    const snapshot = await getDocs(storiesQuery);
+
+    const now = new Date();
+
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          startDate: data.startDate ? convertTimestamp(data.startDate) : undefined,
+          endDate: data.endDate ? convertTimestamp(data.endDate) : undefined,
+          createdAt: convertTimestamp(data.createdAt),
+          updatedAt: convertTimestamp(data.updatedAt),
+        } as FeedStory;
+      })
+      .filter((story) => {
+        // Filter by active status
+        if (activeOnly && !story.isActive) return false;
+        // Filter by date range if set
+        if (story.startDate && story.startDate > now) return false;
+        if (story.endDate && story.endDate < now) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        // Priority stories first
+        if (a.isPriority && !b.isPriority) return -1;
+        if (!a.isPriority && b.isPriority) return 1;
+        // Then by createdAt
+        return b.createdAt.getTime() - a.createdAt.getTime();
+      });
+  } catch (error) {
+    console.error('Error fetching feed stories:', error);
+    return [];
+  }
+};
+
+export const getFeedStory = async (storyId: string): Promise<FeedStory | null> => {
+  const firestore = getDb();
+  const storyDoc = await getDoc(doc(firestore, 'feedStories', storyId));
+  if (!storyDoc.exists()) return null;
+  const data = storyDoc.data();
+  return {
+    id: storyDoc.id,
+    ...data,
+    startDate: data.startDate ? convertTimestamp(data.startDate) : undefined,
+    endDate: data.endDate ? convertTimestamp(data.endDate) : undefined,
+    createdAt: convertTimestamp(data.createdAt),
+    updatedAt: convertTimestamp(data.updatedAt),
+  } as FeedStory;
+};
+
+export const createFeedStory = async (
+  storyData: Omit<FeedStory, 'id' | 'createdAt' | 'updatedAt'>
+): Promise<string> => {
+  const firestore = getDb();
+  const storyRef = doc(collection(firestore, 'feedStories'));
+  await setDoc(storyRef, {
+    ...removeUndefined(storyData),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return storyRef.id;
+};
+
+export const updateFeedStory = async (storyId: string, data: Partial<FeedStory>): Promise<void> => {
+  const firestore = getDb();
+  const storyRef = doc(firestore, 'feedStories', storyId);
+  await updateDoc(storyRef, {
+    ...data,
+    updatedAt: serverTimestamp(),
+  });
+};
+
+export const deleteFeedStory = async (storyId: string): Promise<void> => {
+  const firestore = getDb();
+  await deleteDoc(doc(firestore, 'feedStories', storyId));
+};
+
+// ============ SPONSORED CONTENT ============
+export const getSponsoredContent = async (activeOnly = true): Promise<SponsoredContent[]> => {
+  const firestore = getDb();
+
+  try {
+    // Simple query without composite index requirement
+    const contentQuery = query(collection(firestore, 'sponsoredContent'));
+    const snapshot = await getDocs(contentQuery);
+
+    const now = new Date();
+
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          startDate: data.startDate ? convertTimestamp(data.startDate) : undefined,
+          endDate: data.endDate ? convertTimestamp(data.endDate) : undefined,
+          createdAt: convertTimestamp(data.createdAt),
+          updatedAt: convertTimestamp(data.updatedAt),
+        } as SponsoredContent;
+      })
+      .filter((content) => {
+        // Filter by active status
+        if (activeOnly && !content.isActive) return false;
+        // Filter by date range if set
+        if (content.startDate && content.startDate > now) return false;
+        if (content.endDate && content.endDate < now) return false;
+        return true;
+      })
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  } catch (error) {
+    console.error('Error fetching sponsored content:', error);
+    return [];
+  }
+};
+
+export const getSponsoredContentById = async (
+  contentId: string
+): Promise<SponsoredContent | null> => {
+  const firestore = getDb();
+  const contentDoc = await getDoc(doc(firestore, 'sponsoredContent', contentId));
+  if (!contentDoc.exists()) return null;
+  const data = contentDoc.data();
+  return {
+    id: contentDoc.id,
+    ...data,
+    startDate: data.startDate ? convertTimestamp(data.startDate) : undefined,
+    endDate: data.endDate ? convertTimestamp(data.endDate) : undefined,
+    createdAt: convertTimestamp(data.createdAt),
+    updatedAt: convertTimestamp(data.updatedAt),
+  } as SponsoredContent;
+};
+
+export const createSponsoredContent = async (
+  contentData: Omit<SponsoredContent, 'id' | 'createdAt' | 'updatedAt'>
+): Promise<string> => {
+  const firestore = getDb();
+  const contentRef = doc(collection(firestore, 'sponsoredContent'));
+  await setDoc(contentRef, {
+    ...removeUndefined(contentData),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return contentRef.id;
+};
+
+export const updateSponsoredContent = async (
+  contentId: string,
+  data: Partial<SponsoredContent>
+): Promise<void> => {
+  const firestore = getDb();
+  const contentRef = doc(firestore, 'sponsoredContent', contentId);
+  await updateDoc(contentRef, {
+    ...data,
+    updatedAt: serverTimestamp(),
+  });
+};
+
+export const deleteSponsoredContent = async (contentId: string): Promise<void> => {
+  const firestore = getDb();
+  await deleteDoc(doc(firestore, 'sponsoredContent', contentId));
+};
+
+// ============ PLATFORM STATS (Real-time) ============
+export const getPlatformStats = async (): Promise<{
+  totalMatches: number;
+  activeTournaments: number;
+  totalUsers: number;
+  matchesThisWeek: number;
+}> => {
+  const firestore = getDb();
+
+  try {
+    // Get counts from various collections - simple queries to avoid index requirements
+    const [matchesSnap, tournamentsSnap, usersSnap] = await Promise.all([
+      getDocs(collection(firestore, 'matches')),
+      getDocs(collection(firestore, 'tournaments')),
+      getDocs(collection(firestore, 'users')),
+    ]);
+
+    // Filter active tournaments client-side
+    const activeTournaments = tournamentsSnap.docs.filter((doc) => {
+      const data = doc.data();
+      return data.status === 'registration' || data.status === 'in_progress';
+    }).length;
+
+    // Count matches from this week
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    const matchesThisWeek = matchesSnap.docs.filter((doc) => {
+      const data = doc.data();
+      const createdAt = convertTimestamp(data.createdAt);
+      return createdAt >= oneWeekAgo;
+    }).length;
+
+    return {
+      totalMatches: matchesSnap.size,
+      activeTournaments,
+      totalUsers: usersSnap.size,
+      matchesThisWeek,
+    };
+  } catch (error) {
+    console.error('Error fetching platform stats:', error);
+    return {
+      totalMatches: 0,
+      activeTournaments: 0,
+      totalUsers: 0,
+      matchesThisWeek: 0,
+    };
+  }
+};
+
+// ============ TOP PLAYERS ============
+export const getTopPlayers = async (limitCount = 10): Promise<User[]> => {
+  const firestore = getDb();
+
+  try {
+    // Get all users and sort by wins client-side
+    // (Firestore doesn't support ordering by nested fields easily)
+    const usersQuery = query(collection(firestore, 'users'), limit(100));
+    const snapshot = await getDocs(usersQuery);
+
+    const users = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: convertTimestamp(data.createdAt),
+        updatedAt: convertTimestamp(data.updatedAt),
+      } as User;
+    });
+
+    // Sort by wins and return top players
+    return users
+      .filter((u) => u.accountType === 'player' && u.stats && u.stats.wins > 0)
+      .sort((a, b) => (b.stats?.wins || 0) - (a.stats?.wins || 0))
+      .slice(0, limitCount);
+  } catch (error) {
+    console.error('Error fetching top players:', error);
+    return [];
+  }
 };

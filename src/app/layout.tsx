@@ -29,6 +29,12 @@ export const metadata: Metadata = {
   title: "Gamzic - Youth Esports Platform",
   description: "The home of youth esports — where students compete, connect, and become champions.",
   keywords: ["esports", "gaming", "tournaments", "high school", "college", "competitive gaming"],
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+    apple: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

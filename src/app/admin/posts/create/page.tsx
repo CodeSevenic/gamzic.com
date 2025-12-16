@@ -4,7 +4,12 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { ArrowLeftIcon, PhotoIcon, VideoCameraIcon, UserCircleIcon } from '@heroicons/react/24/outline';
+import {
+  ArrowLeftIcon,
+  PhotoIcon,
+  VideoCameraIcon,
+  UserCircleIcon,
+} from '@heroicons/react/24/outline';
 import { Card } from '@/components/ui/Card';
 import { Textarea } from '@/components/ui/Textarea';
 import { Input } from '@/components/ui/Input';
@@ -33,9 +38,9 @@ export default function CreatePostPage() {
   const [content, setContent] = useState('');
   const [game, setGame] = useState('');
   const [youtubeUrl, setYoutubeUrl] = useState('');
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+
   // Post As feature
   const [postAsAccounts, setPostAsAccounts] = useState<User[]>([]);
   const [selectedAuthorId, setSelectedAuthorId] = useState<string>('');
@@ -45,7 +50,7 @@ export default function CreatePostPage() {
   useEffect(() => {
     const fetchPostAsAccounts = async () => {
       if (!user) return;
-      
+
       try {
         // For super_admins, get all business accounts
         // For others, get only accounts they manage
@@ -55,20 +60,20 @@ export default function CreatePostPage() {
         } else {
           accounts = await getManageableAccounts(user.id);
         }
-        
+
         setPostAsAccounts(accounts);
       } catch (error) {
         console.error('Error fetching post-as accounts:', error);
       }
     };
-    
+
     fetchPostAsAccounts();
   }, [user]);
 
   // Update selected author when selection changes
   useEffect(() => {
     if (selectedAuthorId && selectedAuthorId !== user?.id) {
-      const account = postAsAccounts.find(a => a.id === selectedAuthorId);
+      const account = postAsAccounts.find((a) => a.id === selectedAuthorId);
       setSelectedAuthor(account || null);
     } else {
       setSelectedAuthor(null);
@@ -82,15 +87,32 @@ export default function CreatePostPage() {
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    // Limit to 10 images total
+    const remainingSlots = 10 - imageFiles.length;
+    const newFiles = files.slice(0, remainingSlots);
+
+    if (newFiles.length < files.length) {
+      toast.error('Maximum 10 images allowed');
+    }
+
+    setImageFiles((prev) => [...prev, ...newFiles]);
+
+    // Create previews for new files
+    newFiles.forEach((file) => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreview(reader.result as string);
+        setImagePreviews((prev) => [...prev, reader.result as string]);
       };
       reader.readAsDataURL(file);
-    }
+    });
+  };
+
+  const removeImage = (index: number) => {
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -104,12 +126,15 @@ export default function CreatePostPage() {
 
     setIsLoading(true);
     try {
-      let imageUrl: string | undefined;
+      const uploadedImages: string[] = [];
 
-      // Upload image if provided
-      if (imageFile) {
+      // Upload all images
+      if (imageFiles.length > 0) {
         const tempId = Date.now().toString();
-        imageUrl = await uploadPostImage(tempId, imageFile);
+        for (let i = 0; i < imageFiles.length; i++) {
+          const imageUrl = await uploadPostImage(`${tempId}-${i}`, imageFiles[i]);
+          uploadedImages.push(imageUrl);
+        }
       }
 
       // Extract YouTube ID if URL provided
@@ -127,9 +152,13 @@ export default function CreatePostPage() {
 
       // Only add optional fields if they have values
       if (game) postData.game = game;
-      if (imageUrl) postData.imageUrl = imageUrl;
+      if (uploadedImages.length === 1) {
+        postData.imageUrl = uploadedImages[0]; // Single image for backward compatibility
+      } else if (uploadedImages.length > 1) {
+        postData.images = uploadedImages; // Multiple images
+      }
       if (youtubeVideoId) postData.youtubeVideoId = youtubeVideoId;
-      
+
       // Add author info if posting as someone else
       if (selectedAuthorId && selectedAuthor) {
         postData.authorId = selectedAuthorId;
@@ -159,10 +188,7 @@ export default function CreatePostPage() {
         <span>Back</span>
       </button>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         <Card variant="glass" padding="lg">
           <h1 className="text-2xl font-bold text-white mb-6">Create Post</h1>
 
@@ -174,15 +200,15 @@ export default function CreatePostPage() {
                   <UserCircleIcon className="w-4 h-4 inline mr-1" />
                   Post As
                 </label>
-                
+
                 <div className="grid gap-2">
                   {/* Current user option */}
                   <button
                     type="button"
                     onClick={() => setSelectedAuthorId('')}
                     className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
-                      !selectedAuthorId 
-                        ? 'bg-cyan-500/20 border border-cyan-500/50' 
+                      !selectedAuthorId
+                        ? 'bg-cyan-500/20 border border-cyan-500/50'
                         : 'bg-dark-800 border border-dark-700 hover:border-dark-500'
                     }`}
                   >
@@ -192,10 +218,12 @@ export default function CreatePostPage() {
                       <p className="text-xs text-dark-400">Your account</p>
                     </div>
                     {!selectedAuthorId && (
-                      <Badge variant="info" size="sm">Selected</Badge>
+                      <Badge variant="info" size="sm">
+                        Selected
+                      </Badge>
                     )}
                   </button>
-                  
+
                   {/* Business/Sponsor accounts */}
                   {postAsAccounts.map((account) => (
                     <button
@@ -203,8 +231,8 @@ export default function CreatePostPage() {
                       type="button"
                       onClick={() => setSelectedAuthorId(account.id)}
                       className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
-                        selectedAuthorId === account.id 
-                          ? 'bg-cyan-500/20 border border-cyan-500/50' 
+                        selectedAuthorId === account.id
+                          ? 'bg-cyan-500/20 border border-cyan-500/50'
                           : 'bg-dark-800 border border-dark-700 hover:border-dark-500'
                       }`}
                     >
@@ -212,24 +240,34 @@ export default function CreatePostPage() {
                       <div className="flex-1 text-left">
                         <div className="flex items-center gap-2">
                           <p className="font-medium text-white">{account.displayName}</p>
-                          <Badge 
-                            variant={account.accountType === 'sponsor' ? 'success' : account.accountType === 'business' ? 'info' : 'warning'} 
+                          <Badge
+                            variant={
+                              account.accountType === 'sponsor'
+                                ? 'success'
+                                : account.accountType === 'business'
+                                ? 'info'
+                                : 'warning'
+                            }
                             size="sm"
                           >
                             {ACCOUNT_TYPE_LABELS[account.accountType || 'player']}
                           </Badge>
                         </div>
                         {account.businessInfo?.companyName && (
-                          <p className="text-xs text-dark-400">{account.businessInfo.companyName}</p>
+                          <p className="text-xs text-dark-400">
+                            {account.businessInfo.companyName}
+                          </p>
                         )}
                       </div>
                       {selectedAuthorId === account.id && (
-                        <Badge variant="info" size="sm">Selected</Badge>
+                        <Badge variant="info" size="sm">
+                          Selected
+                        </Badge>
                       )}
                     </button>
                   ))}
                 </div>
-                
+
                 {selectedAuthor && (
                   <p className="text-xs text-cyan-400 mt-3">
                     ✓ This post will appear on {selectedAuthor.displayName}&apos;s profile
@@ -249,10 +287,7 @@ export default function CreatePostPage() {
 
             <Select
               label="Game (optional)"
-              options={[
-                { value: '', label: 'No specific game' },
-                ...gameOptions,
-              ]}
+              options={[{ value: '', label: 'No specific game' }, ...gameOptions]}
               value={game}
               onChange={(e) => setGame(e.target.value)}
             />
@@ -260,42 +295,62 @@ export default function CreatePostPage() {
             {/* Image Upload */}
             <div>
               <label className="block text-sm font-medium text-dark-200 mb-1.5">
-                Image (optional)
+                Images (optional, up to 10)
               </label>
-              <div className="flex items-start gap-4">
-                <label className="cursor-pointer">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="hidden"
-                  />
-                  <div className="w-32 h-32 rounded-lg bg-dark-700 border-2 border-dashed border-dark-600 flex items-center justify-center hover:border-cyan-500 transition-colors overflow-hidden">
-                    {imagePreview ? (
-                      <img
-                        src={imagePreview}
-                        alt="Preview"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="text-center">
-                        <PhotoIcon className="w-8 h-8 text-dark-500 mx-auto" />
-                        <span className="text-xs text-dark-500">Add Image</span>
+              <div className="space-y-3">
+                {/* Image Previews Grid */}
+                {imagePreviews.length > 0 && (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                    {imagePreviews.map((preview, index) => (
+                      <div key={index} className="relative aspect-square group">
+                        <img
+                          src={preview}
+                          alt={`Preview ${index + 1}`}
+                          className="w-full h-full object-cover rounded-lg"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        >
+                          ×
+                        </button>
+                        {index === 0 && (
+                          <span className="absolute bottom-1 left-1 px-1.5 py-0.5 text-xs bg-cyan-500 text-white rounded">
+                            Cover
+                          </span>
+                        )}
                       </div>
-                    )}
+                    ))}
                   </div>
-                </label>
-                {imagePreview && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setImageFile(null);
-                      setImagePreview(null);
-                    }}
-                    className="text-sm text-red-400 hover:text-red-300"
-                  >
-                    Remove
-                  </button>
+                )}
+
+                {/* Add Image Button */}
+                {imagePreviews.length < 10 && (
+                  <label className="cursor-pointer inline-block">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageChange}
+                      className="hidden"
+                    />
+                    <div className="w-24 h-24 rounded-lg bg-dark-700 border-2 border-dashed border-dark-600 flex items-center justify-center hover:border-cyan-500 transition-colors">
+                      <div className="text-center">
+                        <PhotoIcon className="w-6 h-6 text-dark-500 mx-auto" />
+                        <span className="text-xs text-dark-500">
+                          {imagePreviews.length === 0 ? 'Add' : '+'}
+                        </span>
+                      </div>
+                    </div>
+                  </label>
+                )}
+
+                {imagePreviews.length > 0 && (
+                  <p className="text-xs text-dark-400">
+                    {imagePreviews.length} image{imagePreviews.length !== 1 ? 's' : ''} selected
+                    {imagePreviews.length > 1 && ' • First image will be the cover'}
+                  </p>
                 )}
               </div>
             </div>
@@ -335,4 +390,3 @@ export default function CreatePostPage() {
     </div>
   );
 }
-

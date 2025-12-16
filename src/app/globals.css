@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
   /* Cyber/Gaming color palette */
@@ -38,9 +38,12 @@
   --font-body: 'Rajdhani', system-ui, sans-serif;
 
   /* Shadows */
-  --shadow-neon-blue: 0 0 5px rgba(0, 212, 255, 0.5), 0 0 20px rgba(0, 212, 255, 0.3), 0 0 40px rgba(0, 212, 255, 0.1);
-  --shadow-neon-purple: 0 0 5px rgba(153, 69, 255, 0.5), 0 0 20px rgba(153, 69, 255, 0.3), 0 0 40px rgba(153, 69, 255, 0.1);
-  --shadow-neon-pink: 0 0 5px rgba(255, 0, 170, 0.5), 0 0 20px rgba(255, 0, 170, 0.3), 0 0 40px rgba(255, 0, 170, 0.1);
+  --shadow-neon-blue: 0 0 5px rgba(0, 212, 255, 0.5), 0 0 20px rgba(0, 212, 255, 0.3),
+    0 0 40px rgba(0, 212, 255, 0.1);
+  --shadow-neon-purple: 0 0 5px rgba(153, 69, 255, 0.5), 0 0 20px rgba(153, 69, 255, 0.3),
+    0 0 40px rgba(153, 69, 255, 0.1);
+  --shadow-neon-pink: 0 0 5px rgba(255, 0, 170, 0.5), 0 0 20px rgba(255, 0, 170, 0.3),
+    0 0 40px rgba(255, 0, 170, 0.1);
   --shadow-inner-glow: inset 0 0 20px rgba(0, 212, 255, 0.1);
 
   /* Animations */
@@ -50,23 +53,42 @@
 }
 
 @keyframes glow {
-  0% { box-shadow: 0 0 5px rgba(0, 212, 255, 0.5), 0 0 20px rgba(0, 212, 255, 0.3); }
-  100% { box-shadow: 0 0 10px rgba(153, 69, 255, 0.5), 0 0 40px rgba(153, 69, 255, 0.3); }
+  0% {
+    box-shadow: 0 0 5px rgba(0, 212, 255, 0.5), 0 0 20px rgba(0, 212, 255, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 10px rgba(153, 69, 255, 0.5), 0 0 40px rgba(153, 69, 255, 0.3);
+  }
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
 }
 
 @keyframes slideUp {
-  0% { transform: translateY(20px); opacity: 0; }
-  100% { transform: translateY(0); opacity: 1; }
+  0% {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 @keyframes fadeIn {
-  0% { opacity: 0; }
-  100% { opacity: 1; }
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
 * {
@@ -105,8 +127,7 @@ body {
 
 /* Cyber grid background */
 .cyber-grid {
-  background-image: 
-    linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
+  background-image: linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
   background-size: 50px 50px;
 }
@@ -119,9 +140,7 @@ body {
 /* Neon border */
 .neon-border {
   border: 1px solid rgba(0, 212, 255, 0.3);
-  box-shadow: 
-    0 0 5px rgba(0, 212, 255, 0.2),
-    inset 0 0 5px rgba(0, 212, 255, 0.1);
+  box-shadow: 0 0 5px rgba(0, 212, 255, 0.2), inset 0 0 5px rgba(0, 212, 255, 0.1);
 }
 
 /* Glass effect */
@@ -154,7 +173,93 @@ body {
   color: white;
 }
 
+/* Ensure clickable elements have pointer cursor */
+button:not(:disabled),
+[role='button'],
+a,
+label[for],
+input[type='checkbox'],
+input[type='radio'],
+select:not(:disabled) {
+  cursor: pointer;
+}
+
+/* Clickable card/item styles */
+.clickable {
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.clickable:hover {
+  transform: translateY(-2px);
+}
+
 /* Focus ring */
 .focus-ring {
   @apply focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:ring-offset-2 focus:ring-offset-dark-900;
+}
+
+/* Hide scrollbar for stories carousel */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Story card glow animation */
+@keyframes storyGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(153, 69, 255, 0.4);
+  }
+}
+
+.story-glow {
+  animation: storyGlow 3s ease-in-out infinite;
+}
+
+/* Live pulse indicator */
+@keyframes livePulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+.live-pulse {
+  animation: livePulse 1.5s ease-in-out infinite;
+}
+
+/* Card shine effect on hover */
+@keyframes cardShine {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.card-shine:hover::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+  background-size: 200% 100%;
+  animation: cardShine 1.5s ease-in-out;
+  pointer-events: none;
 }

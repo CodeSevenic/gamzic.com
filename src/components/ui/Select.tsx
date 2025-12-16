@@ -15,16 +15,13 @@ interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'chi
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ label, error, options, placeholder, className = '', ...props }, ref) => {
+  ({ label, error, options, placeholder, className = '', disabled, ...props }, ref) => {
     return (
       <div className="w-full">
-        {label && (
-          <label className="block text-sm font-medium text-dark-200 mb-1.5">
-            {label}
-          </label>
-        )}
+        {label && <label className="block text-sm font-medium text-dark-200 mb-1.5">{label}</label>}
         <select
           ref={ref}
+          disabled={disabled}
           className={`
             w-full px-4 py-2.5 rounded-lg
             bg-dark-800 border border-dark-600
@@ -32,6 +29,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50
             transition-all duration-200
             appearance-none cursor-pointer
+            disabled:opacity-50 disabled:cursor-not-allowed
             ${error ? 'border-red-500 focus:border-red-500 focus:ring-red-500/50' : ''}
             ${className}
           `}
@@ -62,4 +60,3 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
 );
 
 Select.displayName = 'Select';
-
