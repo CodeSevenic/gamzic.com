@@ -36,6 +36,7 @@ export default function CreateMatchPage() {
   const [registrationDeadline, setRegistrationDeadline] = useState('');
   const [streamUrl, setStreamUrl] = useState('');
   const [isPublic, setIsPublic] = useState(true);
+  const [isFeatured, setIsFeatured] = useState(false);
   
   // New tournament-like fields
   const [rules, setRules] = useState('');
@@ -126,6 +127,7 @@ export default function CreateMatchPage() {
         registrationDeadline: registrationDeadline ? new Date(registrationDeadline) : undefined,
         streamUrl: streamUrl.trim() || undefined,
         isPublic,
+        isFeatured,
         createdBy: user.id,
       });
 
@@ -367,23 +369,37 @@ export default function CreateMatchPage() {
               />
             </div>
 
-            {/* Visibility */}
+            {/* Visibility & Features */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-white border-b border-dark-700 pb-2">
-                Visibility
+                Visibility & Features
               </h3>
 
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="isPublic"
-                  checked={isPublic}
-                  onChange={(e) => setIsPublic(e.target.checked)}
-                  className="w-5 h-5 rounded border-dark-600 bg-dark-700 text-cyan-500 focus:ring-cyan-500"
-                />
-                <label htmlFor="isPublic" className="text-dark-200">
-                  Public match (visible to everyone, anyone can join)
-                </label>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="isPublic"
+                    checked={isPublic}
+                    onChange={(e) => setIsPublic(e.target.checked)}
+                    className="w-5 h-5 rounded border-dark-600 bg-dark-700 text-cyan-500 focus:ring-cyan-500"
+                  />
+                  <label htmlFor="isPublic" className="text-dark-200">
+                    Public match (visible to everyone, anyone can join)
+                  </label>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="isFeatured"
+                    checked={isFeatured}
+                    onChange={(e) => setIsFeatured(e.target.checked)}
+                    className="w-5 h-5 rounded border-dark-600 bg-dark-700 text-yellow-500 focus:ring-yellow-500"
+                  />
+                  <label htmlFor="isFeatured" className="text-dark-200">
+                    ⭐ Feature on Feed (show prominently to all users)
+                  </label>
+                </div>
               </div>
             </div>
 

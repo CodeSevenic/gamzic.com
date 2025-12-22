@@ -110,7 +110,7 @@ export default function CreateStoryPage() {
           { value: '', label: 'Select a tournament...' },
           ...tournaments.map((t) => ({
             value: t.id,
-            label: `${t.name} (${t.status})`,
+            label: `${t.title} (${t.status})`,
           })),
         ];
       case 'post':
@@ -160,23 +160,26 @@ export default function CreateStoryPage() {
         }
       }
 
-      await createFeedStory({
+      // Build create data, avoiding undefined (Firebase doesn't accept it)
+      const createData: Record<string, unknown> = {
         type: formData.type,
         title: formData.title.trim(),
-        subtitle: formData.subtitle.trim() || undefined,
-        imageUrl: formData.imageUrl.trim() || undefined,
-        linkUrl: finalLinkUrl || undefined,
-        linkType: formData.linkType
-          ? (formData.linkType as 'match' | 'tournament' | 'post' | 'user' | 'external')
-          : undefined,
-        linkId: formData.linkId || undefined,
-        badge: formData.badge.trim() || undefined,
-        badgeColor: formData.badgeColor || undefined,
         gradient: formData.gradient,
         isActive: formData.isActive,
         isPriority: formData.isPriority,
         createdBy: user.id,
-      });
+      };
+      
+      // Optional fields - only include if they have values
+      if (formData.subtitle.trim()) createData.subtitle = formData.subtitle.trim();
+      if (formData.imageUrl.trim()) createData.imageUrl = formData.imageUrl.trim();
+      if (finalLinkUrl) createData.linkUrl = finalLinkUrl;
+      if (formData.linkType) createData.linkType = formData.linkType as 'match' | 'tournament' | 'post' | 'user' | 'external';
+      if (formData.linkId) createData.linkId = formData.linkId;
+      if (formData.badge.trim()) createData.badge = formData.badge.trim();
+      if (formData.badgeColor) createData.badgeColor = formData.badgeColor;
+      
+      await createFeedStory(createData as Parameters<typeof createFeedStory>[0]);
 
       toast.success('Story created successfully!');
       router.push('/admin/stories');

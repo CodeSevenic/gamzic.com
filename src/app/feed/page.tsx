@@ -16,8 +16,6 @@ import {
   getTournaments,
   getFeedStories,
   getSponsoredContent,
-  getPlatformStats,
-  getTopPlayers,
 } from '@/lib/firebase/db';
 import { formatDistanceToNow } from 'date-fns';
 import {
@@ -37,7 +35,6 @@ import { Stories } from '@/components/feed/Stories';
 import { LiveMatchCard } from '@/components/feed/LiveMatchCard';
 import { TournamentSpotlight, TournamentRow } from '@/components/feed/TournamentSpotlight';
 import { SponsoredContent, SponsoredMini } from '@/components/feed/SponsoredContent';
-import { QuickStats, QuickStatsWidget } from '@/components/feed/QuickStats';
 import { PostComments } from '@/components/feed/PostComments';
 import { ImageGallery } from '@/components/ui/ImageGallery';
 import { useGames } from '@/hooks/useGames';
@@ -55,7 +52,7 @@ const ACCOUNT_TYPE_BADGES: Record<
 };
 
 // Types for mixed feed content
-type FeedItemType = 'post' | 'live_match' | 'tournament' | 'sponsored' | 'stats' | 'quick_matches';
+type FeedItemType = 'post' | 'live_match' | 'tournament' | 'sponsored' | 'quick_matches';
 
 interface FeedItem {
   type: FeedItemType;
@@ -80,13 +77,6 @@ export default function FeedPage() {
   const [upcomingMatches, setUpcomingMatches] = useState<Match[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [sponsoredContent, setSponsoredContent] = useState<SponsoredContentType[]>([]);
-  const [platformStats, setPlatformStats] = useState<{
-    totalMatches: number;
-    activeTournaments: number;
-    totalUsers: number;
-    matchesThisWeek: number;
-  } | null>(null);
-  const [topPlayers, setTopPlayers] = useState<User[]>([]);
 
   useEffect(() => {
     const fetchAllData = async () => {
@@ -103,12 +93,17 @@ export default function FeedPage() {
 
         setPosts(postsResult.posts);
 
-        // Separate live and upcoming matches
+        // Separate live, featured, and upcoming matches
         const live = matchesResult.matches.filter((m) => m.status === 'in_progress');
+        const featured = matchesResult.matches.filter(
+          (m) => m.isFeatured && m.status !== 'completed' && m.status !== 'cancelled'
+        );
         const upcoming = matchesResult.matches.filter(
           (m) => m.status === 'open' || m.status === 'scheduled'
         );
-        setLiveMatches(live);
+        // Combine live and featured (live takes priority) for prominent display
+        const prominentMatches = [...live, ...featured.filter((f) => !live.some((l) => l.id === f.id))];
+        setLiveMatches(prominentMatches);
         setUpcomingMatches(upcoming);
 
         // Filter tournaments with open registration or in progress
@@ -132,13 +127,12 @@ export default function FeedPage() {
 
         // Fetch new optional data separately - these can fail without breaking the feed
         try {
-          const [storiesResult, sponsoredResult, statsResult, topPlayersResult] = await Promise.all(
-            [getFeedStories(true), getSponsoredContent(true), getPlatformStats(), getTopPlayers(5)]
-          );
+          const [storiesResult, sponsoredResult] = await Promise.all([
+            getFeedStories(true),
+            getSponsoredContent(true),
+          ]);
           setFeedStories(storiesResult);
           setSponsoredContent(sponsoredResult);
-          setPlatformStats(statsResult);
-          setTopPlayers(topPlayersResult);
         } catch (optionalError) {
           console.error('Error fetching optional feed data:', optionalError);
           // Continue without this data - feed will still work
@@ -153,12 +147,86 @@ export default function FeedPage() {
     fetchAllData();
   }, [filter, user?.schoolId]);
 
-  // Create mixed feed content - all real data
+  // Create mixed feed content - all real data, diverse content types
   const mixedFeed = useMemo(() => {
     const items: FeedItem[] = [];
-    let sponsoredIndex = 0;
 
-    // Add posts
+    // Filter sponsored content based on placement and settings
+    const activeSponsored = sponsoredContent
+      .filter((ad) => {
+        // Must not be dismissed
+        if (dismissedAds.has(ad.id)) return false;
+        // Must be active
+        if (!ad.isActive) return false;
+        // Check placement (default to 'feed' if not specified)
+        const placements = ad.placements || ['feed'];
+        if (!placements.includes('feed')) return false;
+        // Check minPostsRequired (default to 0)
+        const minPosts = ad.minPostsRequired ?? 0;
+        if (posts.length < minPosts) return false;
+        // Check showOnEmptyFeed (default to true)
+        if (posts.length === 0 && ad.showOnEmptyFeed === false) return false;
+        return true;
+      })
+      .sort((a, b) => (b.priority || 5) - (a.priority || 5));
+
+    // Separate ads by position preference
+    const topAds = activeSponsored.filter((ad) => ad.position === 'top');
+    const middleAds = activeSponsored.filter((ad) => ad.position === 'middle');
+    const bottomAds = activeSponsored.filter((ad) => ad.position === 'bottom');
+    const anywhereAds = activeSponsored.filter((ad) => !ad.position || ad.position === 'anywhere');
+
+    // Track which ads we've used
+    const usedAdIds = new Set<string>();
+    let itemCount = 0;
+
+    // Helper to add an ad and mark it as used
+    const addAd = (ad: SponsoredContentType, priorityVal: number) => {
+      if (usedAdIds.has(ad.id)) return false;
+      items.push({
+        type: 'sponsored',
+        id: `sponsored-${ad.id}`,
+        data: ad,
+        priority: priorityVal,
+      });
+      usedAdIds.add(ad.id);
+      itemCount++;
+      return true;
+    };
+
+    // 1. Featured/Live matches go first (most important for engagement)
+    liveMatches.forEach((match) => {
+      items.push({
+        type: 'live_match',
+        id: `live-match-${match.id}`,
+        data: match,
+        priority: -100,
+      });
+      itemCount++;
+    });
+
+    // 2. TOP positioned ads (show at the very beginning)
+    topAds.forEach((ad, idx) => addAd(ad, -90 + idx));
+
+    // 3. First sponsored content if we have any and no live matches
+    // This ensures at least one ad shows even with few posts
+    if (anywhereAds.length > 0 && liveMatches.length === 0 && topAds.length === 0) {
+      addAd(anywhereAds[0], -50);
+    }
+
+    // 4. First tournament if any
+    if (tournaments.length > 0) {
+      items.push({
+        type: 'tournament',
+        id: 'tournament-spotlight',
+        data: tournaments[0],
+        priority: -40,
+      });
+      itemCount++;
+    }
+
+    // 5. Mix in posts with other content
+    const totalPosts = posts.length;
     posts.forEach((post, index) => {
       items.push({
         type: 'post',
@@ -166,64 +234,80 @@ export default function FeedPage() {
         data: post,
         priority: index,
       });
+      itemCount++;
+
+      // Insert quick matches section after 2nd post (or at end if fewer posts)
+      if ((index === 2 || (totalPosts <= 2 && index === totalPosts - 1)) && upcomingMatches.length > 0) {
+        items.push({
+          type: 'quick_matches',
+          id: 'quick-matches',
+          data: null,
+          priority: index + 0.2,
+        });
+      }
+
+      // MIDDLE positioned ads - show after first few posts
+      if (index === 1 && middleAds.length > 0) {
+        middleAds.forEach((ad, idx) => addAd(ad, index + 0.25 + idx * 0.01));
+      }
+
+      // Insert "anywhere" ads based on frequency
+      // But also ensure at least one shows if we have few posts
+      const unusedAnywhereAds = anywhereAds.filter((ad) => !usedAdIds.has(ad.id));
+      if (unusedAnywhereAds.length > 0) {
+        const currentAd = unusedAnywhereAds[0];
+        const adFrequency = currentAd.frequency || 5;
+
+        // Show ad at frequency intervals OR if this is the last post and no ads shown yet
+        const isLastPost = index === totalPosts - 1;
+        const noAdsShownYet = usedAdIds.size === 0;
+        const frequencyMatch = (index + 1) % adFrequency === 0;
+        const shouldShowAd = frequencyMatch || (isLastPost && noAdsShownYet && totalPosts >= 1);
+
+        if (shouldShowAd) {
+          addAd(currentAd, index + 0.3);
+        }
+      }
+
+      // Insert more tournaments later in the feed
+      if (index === 5 && tournaments.length > 1) {
+        items.push({
+          type: 'tournament',
+          id: `tournament-${tournaments[1].id}`,
+          data: tournaments[1],
+          priority: index + 0.4,
+        });
+      }
     });
 
-    // Insert live matches at top if any
-    if (liveMatches.length > 0) {
-      items.splice(0, 0, {
-        type: 'live_match',
-        id: 'live-matches-section',
-        data: liveMatches[0],
-        priority: -1,
+    // 6. BOTTOM positioned ads
+    bottomAds.forEach((ad, idx) => addAd(ad, 50 + idx));
+
+    // 7. If no posts at all, still show content
+    if (posts.length === 0) {
+      // Add any remaining sponsored content
+      anywhereAds.filter((ad) => !usedAdIds.has(ad.id)).forEach((ad, idx) => {
+        addAd(ad, 100 + idx);
       });
-    }
 
-    // Insert tournament spotlight after first 2 posts
-    if (tournaments.length > 0 && items.length > 2) {
-      const insertIndex = Math.min(2, items.length);
-      items.splice(insertIndex, 0, {
-        type: 'tournament',
-        id: 'tournament-spotlight',
-        data: tournaments[0],
-        priority: insertIndex,
-      });
-    }
-
-    // Insert quick matches section after 4 items
-    if (upcomingMatches.length > 0 && items.length > 4) {
-      items.splice(4, 0, {
-        type: 'quick_matches',
-        id: 'quick-matches',
-        data: null,
-        priority: 4,
-      });
-    }
-
-    // Insert real sponsored content every 5 posts (if any exists)
-    const activeSponsored = sponsoredContent.filter((ad) => !dismissedAds.has(ad.id));
-    const itemsCopy = [...items];
-    let insertOffset = 0;
-
-    for (let i = 5; i < itemsCopy.length; i += 6) {
-      if (sponsoredIndex < activeSponsored.length) {
-        items.splice(i + insertOffset, 0, {
-          type: 'sponsored',
-          id: `sponsored-${activeSponsored[sponsoredIndex].id}`,
-          data: activeSponsored[sponsoredIndex],
-          priority: i,
+      // Add upcoming matches
+      if (upcomingMatches.length > 0) {
+        items.push({
+          type: 'quick_matches',
+          id: 'quick-matches',
+          data: null,
+          priority: 200,
         });
-        sponsoredIndex++;
-        insertOffset++;
       }
-    }
 
-    // Insert stats widget after 8 items (only if we have stats)
-    if (platformStats && items.length > 8) {
-      items.splice(8, 0, {
-        type: 'stats',
-        id: 'stats-widget',
-        data: null,
-        priority: 8,
+      // Add more tournaments
+      tournaments.slice(1).forEach((tournament, idx) => {
+        items.push({
+          type: 'tournament',
+          id: `tournament-${tournament.id}`,
+          data: tournament,
+          priority: 300 + idx,
+        });
       });
     }
 
@@ -235,7 +319,6 @@ export default function FeedPage() {
     tournaments,
     sponsoredContent,
     dismissedAds,
-    platformStats,
   ]);
 
   const handleReaction = async (postId: string, reactionType: ReactionType) => {
@@ -285,23 +368,23 @@ export default function FeedPage() {
   const hasStoriesContent =
     feedStories.length > 0 || liveMatches.length > 0 || tournaments.length > 0;
 
+  // Filter sponsored content for stories placement
+  const storiesAds = sponsoredContent.filter((ad) => {
+    const placements = ad.placements || ['feed'];
+    return placements.includes('stories') && ad.isActive;
+  });
+
   return (
     <div className="max-w-3xl mx-auto p-4 lg:p-6">
       {/* Stories Section - only show if there's content */}
-      {hasStoriesContent && (
+      {(hasStoriesContent || storiesAds.length > 0) && (
         <Stories
           stories={feedStories}
           liveMatches={liveMatches}
           upcomingTournaments={tournaments}
+          sponsoredAds={storiesAds}
           getGameInfo={getGameInfo}
         />
-      )}
-
-      {/* Quick Stats Widget (Mobile) - only show if we have stats */}
-      {platformStats && (
-        <div className="mb-4 lg:hidden">
-          <QuickStatsWidget stats={platformStats} />
-        </div>
       )}
 
       {/* Header with Filter */}
@@ -395,21 +478,23 @@ export default function FeedPage() {
                 )}
 
                 {/* Sponsored Content - only real ads */}
-                {item.type === 'sponsored' && item.data && (
-                  <SponsoredContent
-                    item={item.data as SponsoredContentType}
-                    onDismiss={handleDismissAd}
-                    variant={Math.random() > 0.5 ? 'default' : 'card'}
-                  />
-                )}
-
-                {/* Stats Widget - only with real stats */}
-                {item.type === 'stats' && platformStats && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <QuickStats variant="leaderboard" topPlayers={topPlayers} />
-                    <QuickStats variant="activity" stats={platformStats} />
-                  </div>
-                )}
+                {item.type === 'sponsored' && item.data && (() => {
+                  const ad = item.data as SponsoredContentType;
+                  // Map displaySize to component variant
+                  const variantMap: Record<string, 'default' | 'inline' | 'card'> = {
+                    full: 'default',
+                    compact: 'card',
+                    inline: 'inline',
+                  };
+                  const variant = variantMap[ad.displaySize || 'full'] || 'default';
+                  return (
+                    <SponsoredContent
+                      item={ad}
+                      onDismiss={handleDismissAd}
+                      variant={variant}
+                    />
+                  );
+                })()}
 
                 {/* Regular Post */}
                 {item.type === 'post' && item.data && (

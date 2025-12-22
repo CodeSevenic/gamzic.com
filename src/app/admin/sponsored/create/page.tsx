@@ -12,13 +12,19 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
 import { createSponsoredContent, getGames } from '@/lib/firebase/db';
 import { useAuthStore } from '@/store/authStore';
-import { type SponsoredContentType, type Game } from '@/types';
+import { type SponsoredContentType, type AdPlacement, type AdPosition, type AdDisplaySize, type Game } from '@/types';
 
 const contentTypeOptions = [
   { value: 'banner', label: 'Banner Ad' },
   { value: 'native', label: 'Native Ad' },
   { value: 'promotion', label: 'Promotion' },
   { value: 'featured', label: 'Featured' },
+];
+
+const displaySizeOptions: { value: AdDisplaySize; label: string; description: string }[] = [
+  { value: 'full', label: '🖼️ Full Size', description: 'Large banner with image, like a post' },
+  { value: 'compact', label: '📦 Compact', description: 'Card style, medium height' },
+  { value: 'inline', label: '➖ Inline', description: 'Single line, minimal space' },
 ];
 
 const gradientOptions = [
@@ -28,6 +34,44 @@ const gradientOptions = [
   { value: 'from-purple-600 to-pink-600', label: 'Purple to Pink (Premium)' },
   { value: 'from-blue-600 to-indigo-600', label: 'Blue to Indigo (Cool)' },
   { value: 'from-yellow-600 to-amber-600', label: 'Yellow to Amber (Attention)' },
+];
+
+const frequencyOptions = [
+  { value: '3', label: 'High - Every 3 posts' },
+  { value: '5', label: 'Normal - Every 5 posts (Default)' },
+  { value: '7', label: 'Low - Every 7 posts' },
+  { value: '10', label: 'Minimal - Every 10 posts' },
+];
+
+const priorityOptions = [
+  { value: '10', label: '10 - Highest Priority (Shows First)' },
+  { value: '8', label: '8 - High Priority' },
+  { value: '5', label: '5 - Normal Priority (Default)' },
+  { value: '3', label: '3 - Low Priority' },
+  { value: '1', label: '1 - Lowest Priority' },
+];
+
+const placementOptions: { value: AdPlacement; label: string }[] = [
+  { value: 'feed', label: '📱 Feed (Main feed page)' },
+  { value: 'stories', label: '📖 Stories Bar' },
+  { value: 'sidebar', label: '📌 Sidebar' },
+  { value: 'match_page', label: '🎮 Match Pages' },
+  { value: 'tournament_page', label: '🏆 Tournament Pages' },
+];
+
+const positionOptions: { value: AdPosition; label: string }[] = [
+  { value: 'anywhere', label: 'Anywhere (Based on frequency)' },
+  { value: 'top', label: 'Top (First items in feed)' },
+  { value: 'middle', label: 'Middle (After first few posts)' },
+  { value: 'bottom', label: 'Bottom (Later in feed)' },
+];
+
+const minPostsOptions = [
+  { value: '0', label: 'Always show (even with no posts)' },
+  { value: '1', label: 'At least 1 post' },
+  { value: '3', label: 'At least 3 posts' },
+  { value: '5', label: 'At least 5 posts' },
+  { value: '10', label: 'At least 10 posts' },
 ];
 
 export default function CreateSponsoredPage() {
@@ -47,7 +91,16 @@ export default function CreateSponsoredPage() {
     badge: '',
     gradient: 'from-cyan-600 to-purple-600',
     isActive: true,
+    frequency: 5,
+    priority: 5,
     targetGames: [] as string[],
+    // Display size
+    displaySize: 'full' as AdDisplaySize,
+    // Placement controls
+    placements: ['feed'] as AdPlacement[],
+    position: 'anywhere' as AdPosition,
+    minPostsRequired: 0,
+    showOnEmptyFeed: true,
   });
 
   // Fetch available games
@@ -97,21 +150,35 @@ export default function CreateSponsoredPage() {
 
     setIsSubmitting(true);
     try {
-      await createSponsoredContent({
+      // Build create data, using null for empty optional fields (Firebase doesn't accept undefined)
+      const createData: Record<string, unknown> = {
         type: formData.type,
         title: formData.title.trim(),
-        description: formData.description.trim() || undefined,
-        imageUrl: formData.imageUrl.trim() || undefined,
-        logoUrl: formData.logoUrl.trim() || undefined,
         sponsorName: formData.sponsorName.trim(),
         ctaText: formData.ctaText.trim() || 'Learn More',
         ctaUrl: formData.ctaUrl.trim(),
-        badge: formData.badge.trim() || undefined,
         gradient: formData.gradient,
         isActive: formData.isActive,
-        targetGames: formData.targetGames.length > 0 ? formData.targetGames : undefined,
+        frequency: formData.frequency,
+        priority: formData.priority,
         createdBy: user.id,
-      });
+        // Display size
+        displaySize: formData.displaySize,
+        // Placement controls
+        placements: formData.placements,
+        position: formData.position,
+        minPostsRequired: formData.minPostsRequired,
+        showOnEmptyFeed: formData.showOnEmptyFeed,
+      };
+      
+      // Optional fields - only include if they have values
+      if (formData.description.trim()) createData.description = formData.description.trim();
+      if (formData.imageUrl.trim()) createData.imageUrl = formData.imageUrl.trim();
+      if (formData.logoUrl.trim()) createData.logoUrl = formData.logoUrl.trim();
+      if (formData.badge.trim()) createData.badge = formData.badge.trim();
+      createData.targetGames = formData.targetGames.length > 0 ? formData.targetGames : [];
+      
+      await createSponsoredContent(createData as Parameters<typeof createSponsoredContent>[0]);
 
       toast.success('Sponsored content created successfully!');
       router.push('/admin/sponsored');
@@ -230,6 +297,125 @@ export default function CreateSponsoredPage() {
             onChange={(e) => setFormData({ ...formData, gradient: e.target.value })}
             options={gradientOptions}
           />
+
+          {/* Display Size */}
+          <div>
+            <label className="block text-sm font-medium text-dark-200 mb-2">
+              Display Size
+            </label>
+            <div className="grid grid-cols-3 gap-3">
+              {displaySizeOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, displaySize: option.value })}
+                  className={`
+                    p-3 rounded-lg text-left transition-all border
+                    ${
+                      formData.displaySize === option.value
+                        ? 'bg-cyan-500/20 border-cyan-500/50 ring-1 ring-cyan-500/30'
+                        : 'bg-dark-700 border-dark-600 hover:border-dark-500'
+                    }
+                  `}
+                >
+                  <div className="text-sm font-medium text-white">{option.label}</div>
+                  <div className="text-xs text-dark-400 mt-1">{option.description}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Frequency & Priority */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Select
+                label="Display Frequency"
+                value={String(formData.frequency)}
+                onChange={(e) => setFormData({ ...formData, frequency: parseInt(e.target.value) })}
+                options={frequencyOptions}
+              />
+              <p className="text-xs text-dark-500 mt-1">How often this ad appears in the feed</p>
+            </div>
+            <div>
+              <Select
+                label="Priority Level"
+                value={String(formData.priority)}
+                onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) })}
+                options={priorityOptions}
+              />
+              <p className="text-xs text-dark-500 mt-1">Higher priority ads show first</p>
+            </div>
+          </div>
+
+          {/* Placement Controls */}
+          <div className="border border-dark-700 rounded-lg p-4 space-y-4 bg-dark-800/50">
+            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+              📍 Placement Controls
+            </h3>
+
+            {/* Where to show */}
+            <div>
+              <label className="block text-sm font-medium text-dark-200 mb-2">
+                Where to Display
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {placementOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => {
+                      const newPlacements = formData.placements.includes(option.value)
+                        ? formData.placements.filter((p) => p !== option.value)
+                        : [...formData.placements, option.value];
+                      setFormData({ ...formData, placements: newPlacements.length > 0 ? newPlacements : ['feed'] });
+                    }}
+                    className={`
+                      px-3 py-1.5 rounded-lg text-sm font-medium transition-all
+                      ${
+                        formData.placements.includes(option.value)
+                          ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50'
+                          : 'bg-dark-700 text-dark-300 border border-dark-600 hover:border-dark-500'
+                      }
+                    `}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Position in feed */}
+            <Select
+              label="Position in Feed"
+              value={formData.position}
+              onChange={(e) => setFormData({ ...formData, position: e.target.value as AdPosition })}
+              options={positionOptions}
+            />
+
+            {/* Minimum posts required */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Select
+                  label="Minimum Posts Required"
+                  value={String(formData.minPostsRequired)}
+                  onChange={(e) => setFormData({ ...formData, minPostsRequired: parseInt(e.target.value) })}
+                  options={minPostsOptions}
+                />
+                <p className="text-xs text-dark-500 mt-1">Don&apos;t show until feed has this many posts</p>
+              </div>
+              <div className="flex items-end pb-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.showOnEmptyFeed}
+                    onChange={(e) => setFormData({ ...formData, showOnEmptyFeed: e.target.checked })}
+                    className="w-4 h-4 rounded border-dark-600 bg-dark-800 text-cyan-500 focus:ring-cyan-500"
+                  />
+                  <span className="text-sm text-dark-200">Show on empty/minimal feed</span>
+                </label>
+              </div>
+            </div>
+          </div>
 
           {/* Target Games */}
           {games.length > 0 && (

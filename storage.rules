@@ -44,5 +44,11 @@ service firebase.storage {
       allow read: if true;
       allow write: if isAuthenticated() && isValidImage();
     }
+    
+    // Match banners - admin only (but allow authenticated for now)
+    match /matches/{matchId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated() && isValidImage();
+    }
   }
 }

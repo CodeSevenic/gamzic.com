@@ -217,7 +217,7 @@ export const updateSchool = async (schoolId: string, data: Partial<School>): Pro
   const firestore = getDb();
   const schoolRef = doc(firestore, 'schools', schoolId);
   await updateDoc(schoolRef, {
-    ...data,
+    ...removeUndefined(data as Record<string, unknown>),
     updatedAt: serverTimestamp(),
   });
 };
@@ -404,7 +404,7 @@ export const updateTournament = async (
   const firestore = getDb();
   const tournamentRef = doc(firestore, 'tournaments', tournamentId);
   await updateDoc(tournamentRef, {
-    ...data,
+    ...removeUndefined(data as Record<string, unknown>),
     updatedAt: serverTimestamp(),
   });
 };
@@ -543,7 +543,7 @@ export const updateGame = async (gameId: string, data: Partial<Game>): Promise<v
   const firestore = getDb();
   const gameRef = doc(firestore, 'games', gameId);
   await updateDoc(gameRef, {
-    ...data,
+    ...removeUndefined(data as Record<string, unknown>),
     updatedAt: serverTimestamp(),
   });
 };
@@ -655,7 +655,7 @@ export const updateMatch = async (matchId: string, data: Partial<Match>): Promis
   const firestore = getDb();
   const matchRef = doc(firestore, 'matches', matchId);
   await updateDoc(matchRef, {
-    ...data,
+    ...removeUndefined(data as Record<string, unknown>),
     updatedAt: serverTimestamp(),
   });
 };
@@ -761,6 +761,60 @@ export const updateMatchScores = async (
   await updateDoc(matchRef, updateData);
 };
 
+// Add a scoring event to a match (goal, kill, round win, etc.)
+export const addMatchEvent = async (
+  matchId: string,
+  event: {
+    type: 'goal' | 'assist' | 'kill' | 'round_win' | 'point' | 'save' | 'penalty' | 'other';
+    participantId: string;
+    participantName: string;
+    description?: string;
+    value?: number;
+  }
+): Promise<void> => {
+  const firestore = getDb();
+  const matchRef = doc(firestore, 'matches', matchId);
+
+  const newEvent = {
+    id: `event-${Date.now()}`,
+    ...event,
+    timestamp: new Date(),
+  };
+
+  await updateDoc(matchRef, {
+    events: arrayUnion(newEvent),
+    updatedAt: serverTimestamp(),
+  });
+};
+
+// Update match round/map info
+export const updateMatchGameState = async (
+  matchId: string,
+  gameState: {
+    currentRound?: number;
+    currentMap?: string;
+  }
+): Promise<void> => {
+  const firestore = getDb();
+  const matchRef = doc(firestore, 'matches', matchId);
+
+  await updateDoc(matchRef, {
+    ...removeUndefined(gameState as Record<string, unknown>),
+    updatedAt: serverTimestamp(),
+  });
+};
+
+// Clear match events (for reset)
+export const clearMatchEvents = async (matchId: string): Promise<void> => {
+  const firestore = getDb();
+  const matchRef = doc(firestore, 'matches', matchId);
+
+  await updateDoc(matchRef, {
+    events: [],
+    updatedAt: serverTimestamp(),
+  });
+};
+
 // ============ POSTS ============
 export const getPosts = async (
   filters?: { schoolId?: string; game?: string; tournamentId?: string },
@@ -834,7 +888,7 @@ export const updatePost = async (postId: string, data: Partial<Post>): Promise<v
   const firestore = getDb();
   const postRef = doc(firestore, 'posts', postId);
   await updateDoc(postRef, {
-    ...data,
+    ...removeUndefined(data as Record<string, unknown>),
     updatedAt: serverTimestamp(),
   });
 };
@@ -1324,7 +1378,7 @@ export const updateFeedStory = async (storyId: string, data: Partial<FeedStory>)
   const firestore = getDb();
   const storyRef = doc(firestore, 'feedStories', storyId);
   await updateDoc(storyRef, {
-    ...data,
+    ...removeUndefined(data as Record<string, unknown>),
     updatedAt: serverTimestamp(),
   });
 };
@@ -1372,6 +1426,21 @@ export const getSponsoredContent = async (activeOnly = true): Promise<SponsoredC
   }
 };
 
+// Get sponsored content for a specific placement
+export const getSponsoredContentByPlacement = async (
+  placement: 'feed' | 'stories' | 'sidebar' | 'match_page' | 'tournament_page',
+  activeOnly = true
+): Promise<SponsoredContent[]> => {
+  const allContent = await getSponsoredContent(activeOnly);
+  
+  return allContent
+    .filter((content) => {
+      const placements = content.placements || ['feed'];
+      return placements.includes(placement);
+    })
+    .sort((a, b) => (b.priority || 5) - (a.priority || 5));
+};
+
 export const getSponsoredContentById = async (
   contentId: string
 ): Promise<SponsoredContent | null> => {
@@ -1408,8 +1477,9 @@ export const updateSponsoredContent = async (
 ): Promise<void> => {
   const firestore = getDb();
   const contentRef = doc(firestore, 'sponsoredContent', contentId);
+  
   await updateDoc(contentRef, {
-    ...data,
+    ...removeUndefined(data as Record<string, unknown>),
     updatedAt: serverTimestamp(),
   });
 };

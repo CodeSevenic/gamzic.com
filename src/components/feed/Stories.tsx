@@ -13,11 +13,11 @@ import {
   CalendarIcon,
   StarIcon,
 } from '@heroicons/react/24/solid';
-import { type FeedStory, type Match, type Tournament } from '@/types';
+import { type FeedStory, type Match, type Tournament, type SponsoredContent } from '@/types';
 
 interface StoryDisplay {
   id: string;
-  type: 'story' | 'live_match' | 'tournament';
+  type: 'story' | 'live_match' | 'tournament' | 'sponsored';
   title: string;
   subtitle?: string;
   image?: string;
@@ -27,17 +27,19 @@ interface StoryDisplay {
   badgeColor?: 'red' | 'yellow' | 'cyan' | 'purple' | 'green';
   isLive?: boolean;
   gradient: string;
-  rawData?: FeedStory | Match | Tournament;
+  rawData?: FeedStory | Match | Tournament | SponsoredContent;
+  isSponsored?: boolean;
 }
 
 interface StoriesProps {
   stories: FeedStory[];
   liveMatches: Match[];
   upcomingTournaments: Tournament[];
+  sponsoredAds?: SponsoredContent[];
   getGameInfo: (gameId: string) => { name: string; icon: string };
 }
 
-export function Stories({ stories, liveMatches, upcomingTournaments, getGameInfo }: StoriesProps) {
+export function Stories({ stories, liveMatches, upcomingTournaments, sponsoredAds = [], getGameInfo }: StoriesProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
@@ -63,6 +65,21 @@ export function Stories({ stories, liveMatches, upcomingTournaments, getGameInfo
         rawData: match,
       };
     }),
+
+    // Sponsored stories (after live matches)
+    ...sponsoredAds.slice(0, 2).map((ad): StoryDisplay => ({
+      id: `sponsored-${ad.id}`,
+      type: 'sponsored',
+      title: ad.title,
+      subtitle: ad.sponsorName,
+      image: ad.imageUrl,
+      href: ad.ctaUrl,
+      badge: 'Ad',
+      badgeColor: 'yellow',
+      gradient: ad.gradient || 'from-amber-500/80 via-orange-500/60 to-red-500/40',
+      rawData: ad,
+      isSponsored: true,
+    })),
 
     // Admin-created stories
     ...stories.map(

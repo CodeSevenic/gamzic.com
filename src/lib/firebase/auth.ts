@@ -111,6 +111,7 @@ export const createUserDocument = async (
       tournamentWins: 0,
     },
     role: data.role || 'player',
+    accountType: 'player',
     badges: [],
     isOnboarded: false,
     createdAt: serverTimestamp(),

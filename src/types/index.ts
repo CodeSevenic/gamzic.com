@@ -55,10 +55,10 @@ export interface User {
   email: string;
   fullName: string;
   displayName: string;
-  avatar?: string;
-  bio?: string;
-  schoolId?: string;
-  gradeYear?: string;
+  avatar?: string | null;
+  bio?: string | null;
+  schoolId?: string | null;
+  gradeYear?: string | null;
   gameTags: GameTags;
   followers: string[];
   following: string[];
@@ -172,6 +172,27 @@ export interface MatchParticipant {
   joinedAt: Date;
 }
 
+// Match Event Types (for tracking goals, kills, rounds, etc.)
+export type MatchEventType =
+  | 'goal'
+  | 'assist'
+  | 'kill'
+  | 'round_win'
+  | 'point'
+  | 'save'
+  | 'penalty'
+  | 'other';
+
+export interface MatchEvent {
+  id: string;
+  type: MatchEventType;
+  participantId: string; // userId or teamId who did the action
+  participantName: string;
+  description?: string;
+  value?: number; // e.g., points scored
+  timestamp: Date;
+}
+
 export interface Match {
   id: string;
   title: string;
@@ -186,6 +207,11 @@ export interface Match {
   // Scores (indexed by oduserId or teamId)
   scores?: Record<string, number>;
   winnerId?: string;
+  // Match events/scoring log (goals, kills, rounds won, etc.)
+  events?: MatchEvent[];
+  // Current game state (for live updates)
+  currentRound?: number;
+  currentMap?: string;
   // Enhanced features (like tournaments)
   bannerImage?: string;
   rules?: string;
@@ -200,6 +226,8 @@ export interface Match {
   // Stream/spectate info
   streamUrl?: string;
   isPublic: boolean;
+  // Feature on feed (admin can select matches to feature prominently)
+  isFeatured?: boolean;
   // Sponsor support
   sponsors?: string[]; // Array of sponsor/business user IDs
   // Meta
@@ -351,6 +379,15 @@ export interface FeedStory {
 // Sponsored Content Types (for ads in feed)
 export type SponsoredContentType = 'banner' | 'native' | 'promotion' | 'featured';
 
+// Where the ad can be placed
+export type AdPlacement = 'feed' | 'stories' | 'sidebar' | 'match_page' | 'tournament_page';
+
+// When in the feed the ad should appear
+export type AdPosition = 'top' | 'middle' | 'bottom' | 'anywhere';
+
+// Display size/style for the ad
+export type AdDisplaySize = 'full' | 'compact' | 'inline';
+
 export interface SponsoredContent {
   id: string;
   type: SponsoredContentType;
@@ -365,6 +402,25 @@ export interface SponsoredContent {
   gradient?: string;
   // Display options
   isActive: boolean;
+  // Display size: 'full' = large banner with image, 'compact' = card style, 'inline' = minimal single line
+  displaySize?: AdDisplaySize; // default: 'full'
+  // Frequency: how often this ad appears (1 = every post, 3 = every 3 posts, 5 = every 5 posts, etc.)
+  frequency?: number; // default is 5
+  // Priority: higher priority ads show first (1-10, default 5)
+  priority?: number;
+
+  // === NEW PLACEMENT CONTROLS ===
+  // Where to show this ad
+  placements?: AdPlacement[]; // default: ['feed']
+  // Position in feed (top = first few items, middle = after 3-5 posts, bottom = later, anywhere = frequency-based)
+  position?: AdPosition; // default: 'anywhere'
+  // Minimum posts required before showing ads (0 = always show, 3 = need 3+ posts first)
+  minPostsRequired?: number; // default: 0
+  // Show this ad even when there's no/little content
+  showOnEmptyFeed?: boolean; // default: true
+  // Maximum times to show this ad per session (0 = unlimited)
+  maxImpressionsPerSession?: number; // default: 0 (unlimited)
+
   // Scheduling
   startDate?: Date;
   endDate?: Date;

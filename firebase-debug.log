@@ -1,0 +1,75 @@
+[debug] [2025-12-16T09:02:48.117Z] ----------------------------------------------------------------------
+[debug] [2025-12-16T09:02:48.119Z] Command:       /usr/local/bin/node /usr/local/bin/firebase deploy --only storage
+[debug] [2025-12-16T09:02:48.119Z] CLI Version:   14.27.0
+[debug] [2025-12-16T09:02:48.119Z] Platform:      darwin
+[debug] [2025-12-16T09:02:48.119Z] Node Version:  v22.15.0
+[debug] [2025-12-16T09:02:48.119Z] Time:          Tue Dec 16 2025 11:02:48 GMT+0200 (South Africa Standard Time)
+[debug] [2025-12-16T09:02:48.119Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-12-16T09:02:48.120Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2025-12-16T09:02:48.204Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-12-16T09:02:48.204Z] > authorizing via signed-in user (sevenicbookings@gmail.com)
+[debug] [2025-12-16T09:02:48.204Z] [iam] checking project gamzic-b6629 for permissions ["firebase.projects.get","firebaserules.releases.create","firebaserules.releases.update","firebaserules.rulesets.create"]
+[debug] [2025-12-16T09:02:48.204Z] Checked if tokens are valid: false, expires at: 1765623086096
+[debug] [2025-12-16T09:02:48.205Z] Checked if tokens are valid: false, expires at: 1765623086096
+[debug] [2025-12-16T09:02:48.205Z] > refreshing access token with scopes: []
+[debug] [2025-12-16T09:02:48.205Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2025-12-16T09:02:48.205Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-12-16T09:02:48.771Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2025-12-16T09:02:48.772Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-12-16T09:02:48.784Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/gamzic-b6629:testIamPermissions [none]
+[debug] [2025-12-16T09:02:48.784Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/gamzic-b6629:testIamPermissions x-goog-quota-user=projects/gamzic-b6629
+[debug] [2025-12-16T09:02:48.784Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/gamzic-b6629:testIamPermissions {"permissions":["firebase.projects.get","firebaserules.releases.create","firebaserules.releases.update","firebaserules.rulesets.create"]}
+[debug] [2025-12-16T09:02:48.854Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2025-12-16T09:02:48.854Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
+[debug] [2025-12-16T09:02:50.832Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/gamzic-b6629:testIamPermissions 200
+[debug] [2025-12-16T09:02:50.832Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/gamzic-b6629:testIamPermissions {"permissions":["firebase.projects.get","firebaserules.releases.create","firebaserules.releases.update","firebaserules.rulesets.create"]}
+[info] 
+[info] === Deploying to 'gamzic-b6629'...
+[info] 
+[info] i  deploying storage 
+[info] i  storage: ensuring required API firebasestorage.googleapis.com is enabled... 
+[debug] [2025-12-16T09:02:50.836Z] Checked if tokens are valid: true, expires at: 1765879367772
+[debug] [2025-12-16T09:02:50.836Z] Checked if tokens are valid: true, expires at: 1765879367772
+[debug] [2025-12-16T09:02:50.836Z] >>> [apiv2][query] GET https://firebasestorage.googleapis.com/v1alpha/projects/gamzic-b6629/defaultBucket [none]
+[debug] [2025-12-16T09:02:51.916Z] <<< [apiv2][status] GET https://firebasestorage.googleapis.com/v1alpha/projects/gamzic-b6629/defaultBucket 200
+[debug] [2025-12-16T09:02:51.917Z] <<< [apiv2][body] GET https://firebasestorage.googleapis.com/v1alpha/projects/gamzic-b6629/defaultBucket {"name":"projects/gamzic-b6629/defaultBucket","location":"US-CENTRAL1","bucket":{"name":"projects/gamzic-b6629/buckets/gamzic-b6629.firebasestorage.app"},"storageClass":"REGIONAL"}
+[info] i  firebase.storage: checking storage.rules for compilation errors... 
+[debug] [2025-12-16T09:02:51.919Z] Checked if tokens are valid: true, expires at: 1765879367772
+[debug] [2025-12-16T09:02:51.919Z] Checked if tokens are valid: true, expires at: 1765879367772
+[debug] [2025-12-16T09:02:51.920Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/gamzic-b6629:test [none]
+[debug] [2025-12-16T09:02:51.920Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/gamzic-b6629:test [omitted]
+[debug] [2025-12-16T09:02:53.101Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/gamzic-b6629:test 200
+[debug] [2025-12-16T09:02:53.102Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/gamzic-b6629:test {}
+[info] ✔  firebase.storage: rules file storage.rules compiled successfully 
+[debug] [2025-12-16T09:02:53.104Z] Checked if tokens are valid: true, expires at: 1765879367772
+[debug] [2025-12-16T09:02:53.104Z] Checked if tokens are valid: true, expires at: 1765879367772
+[debug] [2025-12-16T09:02:53.104Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/gamzic-b6629/releases pageSize=10&pageToken=
+[debug] [2025-12-16T09:02:53.886Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/gamzic-b6629/releases 200
+[debug] [2025-12-16T09:02:53.887Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/gamzic-b6629/releases {"releases":[{"name":"projects/gamzic-b6629/releases/cloud.firestore","rulesetName":"projects/gamzic-b6629/rulesets/79e5efaf-60e6-45d1-b4c7-df676534c04e","createTime":"2025-12-05T11:29:03.773127Z","updateTime":"2025-12-05T11:49:06.454350Z"},{"name":"projects/gamzic-b6629/releases/firebase.storage/gamzic-b6629.firebasestorage.app","rulesetName":"projects/gamzic-b6629/rulesets/7892675d-f64a-4930-bbdb-7422e87effd4","createTime":"2025-12-05T11:32:25.509821Z","updateTime":"2025-12-05T11:49:05.525848Z"}]}
+[debug] [2025-12-16T09:02:53.899Z] Checked if tokens are valid: true, expires at: 1765879367772
+[debug] [2025-12-16T09:02:53.899Z] Checked if tokens are valid: true, expires at: 1765879367772
+[debug] [2025-12-16T09:02:53.899Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/gamzic-b6629/rulesets/7892675d-f64a-4930-bbdb-7422e87effd4 [none]
+[debug] [2025-12-16T09:02:54.689Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/gamzic-b6629/rulesets/7892675d-f64a-4930-bbdb-7422e87effd4 200
+[debug] [2025-12-16T09:02:54.690Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/gamzic-b6629/rulesets/7892675d-f64a-4930-bbdb-7422e87effd4 [omitted]
+[info] i  storage: uploading rules storage.rules... 
+[debug] [2025-12-16T09:02:54.691Z] Checked if tokens are valid: true, expires at: 1765879367772
+[debug] [2025-12-16T09:02:54.691Z] Checked if tokens are valid: true, expires at: 1765879367772
+[debug] [2025-12-16T09:02:54.692Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/gamzic-b6629/rulesets [none]
+[debug] [2025-12-16T09:02:54.692Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/gamzic-b6629/rulesets [omitted]
+[debug] [2025-12-16T09:02:55.639Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/gamzic-b6629/rulesets 200
+[debug] [2025-12-16T09:02:55.639Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/gamzic-b6629/rulesets {"name":"projects/gamzic-b6629/rulesets/e0893d7a-f6a5-47cc-b328-6875531f99d5","source":{"files":[{"content":"rules_version = '2';\n\nservice firebase.storage {\n  match /b/{bucket}/o {\n    \n    // Helper functions\n    function isAuthenticated() {\n      return request.auth != null;\n    }\n    \n    function isValidImage() {\n      return request.resource.contentType.matches('image/.*') &&\n             request.resource.size < 5 * 1024 * 1024; // 5MB max\n    }\n    \n    // Avatars - users can upload their own\n    match /avatars/{fileName} {\n      allow read: if true;\n      allow write: if isAuthenticated() && \n                   fileName.matches(request.auth.uid + '.*') && \n                   isValidImage();\n    }\n    \n    // School logos - admin only (use Admin SDK on server)\n    match /schools/{schoolId}/{allPaths=**} {\n      allow read: if true;\n      allow write: if isAuthenticated() && isValidImage();\n    }\n    \n    // Team logos - authenticated users can upload\n    match /teams/{teamId}/{allPaths=**} {\n      allow read: if true;\n      allow write: if isAuthenticated() && isValidImage();\n    }\n    \n    // Post images - admin only (but allow authenticated for now)\n    match /posts/{postId}/{allPaths=**} {\n      allow read: if true;\n      allow write: if isAuthenticated() && isValidImage();\n    }\n    \n    // Tournament banners - admin only (but allow authenticated for now)\n    match /tournaments/{tournamentId}/{allPaths=**} {\n      allow read: if true;\n      allow write: if isAuthenticated() && isValidImage();\n    }\n    \n    // Match banners - admin only (but allow authenticated for now)\n    match /matches/{matchId}/{allPaths=**} {\n      allow read: if true;\n      allow write: if isAuthenticated() && isValidImage();\n    }\n  }\n}\n","name":"storage.rules"}]},"createTime":"2025-12-16T09:02:55.836559Z","metadata":{"services":["firebase.storage"]}}
+[debug] [2025-12-16T09:02:55.639Z] [rules] created ruleset projects/gamzic-b6629/rulesets/e0893d7a-f6a5-47cc-b328-6875531f99d5
+[debug] [2025-12-16T09:02:55.640Z] [rules] releasing firebase.storage/gamzic-b6629.firebasestorage.app with ruleset projects/gamzic-b6629/rulesets/e0893d7a-f6a5-47cc-b328-6875531f99d5
+[debug] [2025-12-16T09:02:55.640Z] Checked if tokens are valid: true, expires at: 1765879367772
+[debug] [2025-12-16T09:02:55.640Z] Checked if tokens are valid: true, expires at: 1765879367772
+[debug] [2025-12-16T09:02:55.641Z] >>> [apiv2][query] PATCH https://firebaserules.googleapis.com/v1/projects/gamzic-b6629/releases/firebase.storage/gamzic-b6629.firebasestorage.app [none]
+[debug] [2025-12-16T09:02:55.641Z] >>> [apiv2][body] PATCH https://firebaserules.googleapis.com/v1/projects/gamzic-b6629/releases/firebase.storage/gamzic-b6629.firebasestorage.app {"release":{"name":"projects/gamzic-b6629/releases/firebase.storage/gamzic-b6629.firebasestorage.app","rulesetName":"projects/gamzic-b6629/rulesets/e0893d7a-f6a5-47cc-b328-6875531f99d5"}}
+[debug] [2025-12-16T09:02:56.603Z] <<< [apiv2][status] PATCH https://firebaserules.googleapis.com/v1/projects/gamzic-b6629/releases/firebase.storage/gamzic-b6629.firebasestorage.app 200
+[debug] [2025-12-16T09:02:56.603Z] <<< [apiv2][body] PATCH https://firebaserules.googleapis.com/v1/projects/gamzic-b6629/releases/firebase.storage/gamzic-b6629.firebasestorage.app {"name":"projects/gamzic-b6629/releases/firebase.storage/gamzic-b6629.firebasestorage.app","rulesetName":"projects/gamzic-b6629/rulesets/e0893d7a-f6a5-47cc-b328-6875531f99d5","createTime":"2025-12-05T11:32:25.509821Z","updateTime":"2025-12-16T09:02:56.802424Z"}
+[debug] [2025-12-16T09:02:56.603Z] [rules] updated release projects/gamzic-b6629/releases/firebase.storage/gamzic-b6629.firebasestorage.app
+[info] ✔  storage: released rules storage.rules to firebase.storage 
+[info] 
+[info] ✔  Deploy complete! 
+[info] 
+[info] Project Console: https://console.firebase.google.com/project/gamzic-b6629/overview

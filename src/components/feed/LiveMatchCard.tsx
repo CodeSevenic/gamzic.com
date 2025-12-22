@@ -2,10 +2,10 @@
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { PlayIcon, SignalIcon, UserGroupIcon, ClockIcon } from '@heroicons/react/24/solid';
+import { PlayIcon, SignalIcon, UserGroupIcon, ClockIcon, BoltIcon, FireIcon, TvIcon } from '@heroicons/react/24/solid';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
-import { type Match } from '@/types';
+import { type Match, type MatchEvent } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 
 interface LiveMatchCardProps {
@@ -14,10 +14,23 @@ interface LiveMatchCardProps {
   variant?: 'default' | 'compact' | 'featured';
 }
 
+// Event type icons/emojis
+const EVENT_ICONS: Record<string, string> = {
+  goal: '⚽',
+  assist: '🎯',
+  kill: '💀',
+  round_win: '🏆',
+  point: '📍',
+  save: '🧤',
+  penalty: '🔴',
+  other: '📌',
+};
+
 export function LiveMatchCard({ match, getGameInfo, variant = 'default' }: LiveMatchCardProps) {
   const game = getGameInfo(match.game);
   const isLive = match.status === 'in_progress';
   const participants = match.participants || [];
+  const events = match.events || [];
 
   // Get scores for display
   const scores = match.scores || {};
@@ -25,6 +38,15 @@ export function LiveMatchCard({ match, getGameInfo, variant = 'default' }: LiveM
   const player2 = participants[1];
   const score1 = player1 ? scores[player1.oduserId || player1.teamId || ''] || 0 : 0;
   const score2 = player2 ? scores[player2.oduserId || player2.teamId || ''] || 0 : 0;
+
+  // Get recent events (last 3)
+  const recentEvents = events.slice(-3).reverse();
+
+  // Get scorers for each team
+  const player1Id = player1?.oduserId || player1?.teamId || '';
+  const player2Id = player2?.oduserId || player2?.teamId || '';
+  const player1Events = events.filter(e => e.participantId === player1Id);
+  const player2Events = events.filter(e => e.participantId === player2Id);
 
   if (variant === 'compact') {
     return (
@@ -89,19 +111,31 @@ export function LiveMatchCard({ match, getGameInfo, variant = 'default' }: LiveM
           )}
 
           <div className="relative p-4">
-            {/* Live Badge */}
+            {/* Live Badge & Game Info */}
             <div className="flex items-center justify-between mb-3">
-              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500 text-white text-xs font-bold">
-                <SignalIcon className="w-3 h-3" />
-                <span>LIVE NOW</span>
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500 text-white text-xs font-bold">
+                  <SignalIcon className="w-3 h-3" />
+                  <span>LIVE NOW</span>
+                </span>
+                {match.currentRound && (
+                  <span className="px-2 py-1 rounded-full bg-dark-700 text-dark-300 text-xs">
+                    Round {match.currentRound}
+                  </span>
+                )}
+                {match.currentMap && (
+                  <span className="px-2 py-1 rounded-full bg-dark-700 text-dark-300 text-xs">
+                    {match.currentMap}
+                  </span>
+                )}
+              </div>
               <span className="text-2xl">{game.icon}</span>
             </div>
 
             {/* Title */}
             <h3 className="font-bold text-white text-lg mb-3">{match.title}</h3>
 
-            {/* VS Section */}
+            {/* VS Section with Score */}
             {participants.length >= 2 && (
               <div className="flex items-center justify-between py-4 px-3 bg-dark-800/50 rounded-xl mb-3">
                 {/* Player 1 */}
@@ -115,6 +149,16 @@ export function LiveMatchCard({ match, getGameInfo, variant = 'default' }: LiveM
                   >
                     {score1}
                   </motion.p>
+                  {/* Player 1 events summary */}
+                  {player1Events.length > 0 && (
+                    <div className="mt-1 flex flex-wrap justify-center gap-1">
+                      {player1Events.slice(-3).map((event, idx) => (
+                        <span key={idx} className="text-xs" title={event.description || event.type}>
+                          {EVENT_ICONS[event.type] || '📌'}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* VS */}
@@ -133,15 +177,64 @@ export function LiveMatchCard({ match, getGameInfo, variant = 'default' }: LiveM
                   >
                     {score2}
                   </motion.p>
+                  {/* Player 2 events summary */}
+                  {player2Events.length > 0 && (
+                    <div className="mt-1 flex flex-wrap justify-center gap-1">
+                      {player2Events.slice(-3).map((event, idx) => (
+                        <span key={idx} className="text-xs" title={event.description || event.type}>
+                          {EVENT_ICONS[event.type] || '📌'}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* Watch Button */}
-            <button className="w-full py-2.5 rounded-lg bg-gradient-to-r from-red-500 to-orange-500 text-white font-semibold flex items-center justify-center gap-2 hover:from-red-400 hover:to-orange-400 transition-all">
-              <PlayIcon className="w-5 h-5" />
-              Watch Match
-            </button>
+            {/* Recent Events Feed */}
+            {recentEvents.length > 0 && (
+              <div className="mb-3 p-2 bg-dark-800/30 rounded-lg">
+                <p className="text-[10px] text-dark-500 uppercase tracking-wider mb-2 flex items-center gap-1">
+                  <BoltIcon className="w-3 h-3" />
+                  Recent Activity
+                </p>
+                <div className="space-y-1">
+                  {recentEvents.map((event, idx) => (
+                    <motion.div
+                      key={event.id || idx}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: idx * 0.1 }}
+                      className="flex items-center gap-2 text-xs"
+                    >
+                      <span>{EVENT_ICONS[event.type] || '📌'}</span>
+                      <span className="text-cyan-400 font-medium">{event.participantName}</span>
+                      <span className="text-dark-400">{event.description || event.type}</span>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Watch Button / Stream Link */}
+            <div className="flex gap-2">
+              <button className="flex-1 py-2.5 rounded-lg bg-gradient-to-r from-red-500 to-orange-500 text-white font-semibold flex items-center justify-center gap-2 hover:from-red-400 hover:to-orange-400 transition-all">
+                <PlayIcon className="w-5 h-5" />
+                Watch Match
+              </button>
+              {match.streamUrl && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.open(match.streamUrl, '_blank', 'noopener,noreferrer');
+                  }}
+                  className="px-4 py-2.5 rounded-lg bg-purple-500/20 text-purple-400 font-semibold flex items-center justify-center gap-2 hover:bg-purple-500/30 transition-all"
+                >
+                  <TvIcon className="w-5 h-5" />
+                </button>
+              )}
+            </div>
           </div>
         </Card>
       </Link>
@@ -163,6 +256,9 @@ export function LiveMatchCard({ match, getGameInfo, variant = 'default' }: LiveM
             <div className="flex items-center gap-2">
               <span className="text-xl">{game.icon}</span>
               <span className="text-sm text-dark-400">{game.name}</span>
+              {match.currentMap && (
+                <span className="text-xs text-dark-500">• {match.currentMap}</span>
+              )}
             </div>
             {isLive ? (
               <Badge variant="danger" className="flex items-center gap-1">
@@ -184,6 +280,14 @@ export function LiveMatchCard({ match, getGameInfo, variant = 'default' }: LiveM
             <div className="flex items-center gap-3 p-3 bg-dark-800/50 rounded-lg">
               <div className="flex-1 text-right">
                 <p className="text-sm text-white font-medium truncate">{player1?.name}</p>
+                {/* Show event icons for player 1 */}
+                {isLive && player1Events.length > 0 && (
+                  <div className="flex justify-end gap-0.5 mt-1">
+                    {player1Events.slice(-2).map((e, i) => (
+                      <span key={i} className="text-[10px]">{EVENT_ICONS[e.type] || '📌'}</span>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <span
@@ -204,6 +308,14 @@ export function LiveMatchCard({ match, getGameInfo, variant = 'default' }: LiveM
               </div>
               <div className="flex-1">
                 <p className="text-sm text-white font-medium truncate">{player2?.name}</p>
+                {/* Show event icons for player 2 */}
+                {isLive && player2Events.length > 0 && (
+                  <div className="flex gap-0.5 mt-1">
+                    {player2Events.slice(-2).map((e, i) => (
+                      <span key={i} className="text-[10px]">{EVENT_ICONS[e.type] || '📌'}</span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -215,11 +327,32 @@ export function LiveMatchCard({ match, getGameInfo, variant = 'default' }: LiveM
             </div>
           )}
 
+          {/* Latest event for live matches */}
+          {isLive && recentEvents.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-3 flex items-center gap-2 text-xs text-dark-400 p-2 bg-dark-800/30 rounded"
+            >
+              <FireIcon className="w-3 h-3 text-orange-400" />
+              <span className="text-cyan-400">{recentEvents[0].participantName}</span>
+              <span>{recentEvents[0].description || recentEvents[0].type}</span>
+            </motion.div>
+          )}
+
           {/* Time info */}
           {match.scheduledTime && !isLive && (
             <div className="flex items-center gap-2 mt-3 text-sm text-dark-400">
               <ClockIcon className="w-4 h-4" />
               <span>{formatDistanceToNow(match.scheduledTime, { addSuffix: true })}</span>
+            </div>
+          )}
+
+          {/* Stream link indicator */}
+          {isLive && match.streamUrl && (
+            <div className="flex items-center gap-2 mt-2 text-xs text-purple-400">
+              <TvIcon className="w-3 h-3" />
+              <span>Stream available</span>
             </div>
           )}
         </div>

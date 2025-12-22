@@ -146,8 +146,12 @@ export default function AdminSponsoredPage() {
                   {item.description && (
                     <p className="text-sm text-dark-400 mb-2 line-clamp-2">{item.description}</p>
                   )}
-                  <div className="flex items-center gap-2 text-xs text-dark-500">
+                  <div className="flex items-center gap-2 text-xs text-dark-500 flex-wrap">
                     <span>CTA: {item.ctaText || 'Learn More'}</span>
+                    <span>•</span>
+                    <span>Every {item.frequency || 5} posts</span>
+                    <span>•</span>
+                    <span>Priority: {item.priority || 5}</span>
                   </div>
                   <p className="text-xs text-dark-500 mt-2">
                     Created {format(item.createdAt, 'MMM d, yyyy')}

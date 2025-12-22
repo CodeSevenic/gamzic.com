@@ -21,9 +21,10 @@ import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import { useAuthStore } from '@/store/authStore';
-import { getTournament, getUsersByIds, registerForTournament, unregisterFromTournament } from '@/lib/firebase/db';
-import { type Tournament, type User, type TournamentStatus } from '@/types';
+import { getTournament, getUsersByIds, registerForTournament, unregisterFromTournament, getSponsoredContentByPlacement } from '@/lib/firebase/db';
+import { type Tournament, type User, type TournamentStatus, type SponsoredContent as SponsoredContentType } from '@/types';
 import { useGames } from '@/hooks/useGames';
+import { SponsoredContent } from '@/components/feed/SponsoredContent';
 
 const statusColors: Record<TournamentStatus, 'success' | 'warning' | 'info' | 'danger' | 'default'> = {
   draft: 'default',
@@ -50,10 +51,24 @@ export default function TournamentDetailPage() {
   const [participantUsers, setParticipantUsers] = useState<Record<string, User>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [sponsoredAds, setSponsoredAds] = useState<SponsoredContentType[]>([]);
 
   const tournamentId = params.id as string;
   const isRegistered = user && tournament?.participants.includes(user.id);
   const game = tournament ? getGameInfo(tournament.game) : null;
+
+  // Fetch ads for tournament pages
+  useEffect(() => {
+    const fetchAds = async () => {
+      try {
+        const ads = await getSponsoredContentByPlacement('tournament_page');
+        setSponsoredAds(ads.slice(0, 2)); // Show max 2 ads
+      } catch (error) {
+        console.error('Error fetching ads:', error);
+      }
+    };
+    fetchAds();
+  }, []);
 
   useEffect(() => {
     const fetchTournament = async () => {
@@ -328,6 +343,19 @@ export default function TournamentDetailPage() {
               </p>
             )}
           </Card>
+
+          {/* Sponsored Content */}
+          {sponsoredAds.length > 0 && (
+            <div className="space-y-3 mt-2">
+              {sponsoredAds.map((ad) => (
+                <SponsoredContent
+                  key={ad.id}
+                  item={ad}
+                  variant="sidebar"
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

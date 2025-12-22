@@ -25,9 +25,10 @@ import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import { useAuthStore } from '@/store/authStore';
-import { subscribeToMatch, getUsersByIds, joinMatch, leaveMatch } from '@/lib/firebase/db';
-import { type Match, type User, type MatchStatus, type MatchType } from '@/types';
+import { subscribeToMatch, getUsersByIds, joinMatch, leaveMatch, getSponsoredContentByPlacement } from '@/lib/firebase/db';
+import { type Match, type User, type MatchStatus, type MatchType, type SponsoredContent as SponsoredContentType, type AdDisplaySize } from '@/types';
 import { useGames } from '@/hooks/useGames';
+import { SponsoredContent } from '@/components/feed/SponsoredContent';
 import { Timestamp } from 'firebase/firestore';
 
 // Helper to convert Firestore Timestamp or Date to Date
@@ -73,6 +74,7 @@ export default function MatchDetailPage() {
   const [participantUsers, setParticipantUsers] = useState<Record<string, User>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
+  const [sponsoredAds, setSponsoredAds] = useState<SponsoredContentType[]>([]);
 
   const matchId = params.id as string;
   const game = match ? getGameInfo(match.game) : null;
@@ -110,6 +112,19 @@ export default function MatchDetailPage() {
 
     return () => unsubscribe();
   }, [matchId, router]);
+
+  // Fetch ads for match pages
+  useEffect(() => {
+    const fetchAds = async () => {
+      try {
+        const ads = await getSponsoredContentByPlacement('match_page');
+        setSponsoredAds(ads.slice(0, 2)); // Show max 2 ads
+      } catch (error) {
+        console.error('Error fetching ads:', error);
+      }
+    };
+    fetchAds();
+  }, []);
 
   const handleJoin = async () => {
     if (!user || !match) return;
@@ -567,6 +582,19 @@ export default function MatchDetailPage() {
               )}
             </div>
           </Card>
+
+          {/* Sponsored Content */}
+          {sponsoredAds.length > 0 && (
+            <div className="space-y-3 mt-2">
+              {sponsoredAds.map((ad) => (
+                <SponsoredContent
+                  key={ad.id}
+                  item={ad}
+                  variant="sidebar"
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

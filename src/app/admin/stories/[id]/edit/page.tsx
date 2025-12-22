@@ -119,7 +119,7 @@ export default function EditStoryPage() {
           { value: '', label: 'Select a tournament...' },
           ...tournaments.map((t) => ({
             value: t.id,
-            label: `${t.name} (${t.status})`,
+            label: `${t.title} (${t.status})`,
           })),
         ];
       case 'post':
@@ -198,22 +198,25 @@ export default function EditStoryPage() {
         }
       }
 
-      await updateFeedStory(storyId, {
+      // Build update data, using null to clear optional fields (Firebase doesn't accept undefined)
+      const updateData: Record<string, unknown> = {
         type: formData.type,
         title: formData.title.trim(),
-        subtitle: formData.subtitle.trim() || undefined,
-        imageUrl: formData.imageUrl.trim() || undefined,
-        linkUrl: finalLinkUrl || undefined,
-        linkType: formData.linkType
-          ? (formData.linkType as 'match' | 'tournament' | 'post' | 'user' | 'external')
-          : undefined,
-        linkId: formData.linkId || undefined,
-        badge: formData.badge.trim() || undefined,
-        badgeColor: formData.badgeColor || undefined,
         gradient: formData.gradient,
         isActive: formData.isActive,
         isPriority: formData.isPriority,
-      });
+      };
+      
+      // Optional fields - use null to clear or the actual value
+      updateData.subtitle = formData.subtitle.trim() || null;
+      updateData.imageUrl = formData.imageUrl.trim() || null;
+      updateData.linkUrl = finalLinkUrl || null;
+      updateData.linkType = formData.linkType ? (formData.linkType as 'match' | 'tournament' | 'post' | 'user' | 'external') : null;
+      updateData.linkId = formData.linkId || null;
+      updateData.badge = formData.badge.trim() || null;
+      updateData.badgeColor = formData.badgeColor || null;
+      
+      await updateFeedStory(storyId, updateData);
 
       toast.success('Story updated successfully!');
       router.push('/admin/stories');

@@ -12,13 +12,29 @@ import {
 } from '@heroicons/react/24/outline';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Avatar } from '@/components/ui/Avatar';
 import { type SponsoredContent as SponsoredContentType } from '@/types';
+
+// Simple logo component for external URLs (doesn't use next/image)
+function SponsorLogo({ src, alt, size = 'md' }: { src: string; alt: string; size?: 'sm' | 'md' | 'lg' }) {
+  const sizeClasses = {
+    sm: 'w-8 h-8',
+    md: 'w-10 h-10',
+    lg: 'w-12 h-12',
+  };
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={`${sizeClasses[size]} rounded-full object-cover bg-dark-700`}
+    />
+  );
+}
 
 interface SponsoredContentProps {
   item: SponsoredContentType;
   onDismiss?: (id: string) => void;
-  variant?: 'default' | 'inline' | 'card';
+  variant?: 'default' | 'inline' | 'card' | 'sidebar';
 }
 
 export function SponsoredContent({ item, onDismiss, variant = 'default' }: SponsoredContentProps) {
@@ -28,7 +44,7 @@ export function SponsoredContent({ item, onDismiss, variant = 'default' }: Spons
     return (
       <div className="relative py-3 px-4 bg-dark-800/50 border-y border-dark-700/50">
         <div className="flex items-center gap-3">
-          {item.logoUrl && <Avatar src={item.logoUrl} alt={item.sponsorName} size="sm" />}
+          {item.logoUrl && <SponsorLogo src={item.logoUrl} alt={item.sponsorName} size="sm" />}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="text-xs text-dark-500">Sponsored</span>
@@ -56,54 +72,110 @@ export function SponsoredContent({ item, onDismiss, variant = 'default' }: Spons
     );
   }
 
+  // Sidebar variant - compact and clean for sidebars
+  if (variant === 'sidebar') {
+    return (
+      <Card variant="default" padding="none" className="overflow-hidden">
+        {/* Gradient header */}
+        <div className={`h-1.5 bg-gradient-to-r ${item.gradient || 'from-cyan-500 to-purple-500'}`} />
+        
+        <div className="p-3">
+          {/* Sponsor label */}
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] uppercase tracking-wider text-dark-500 font-medium">Sponsored</span>
+            {onDismiss && (
+              <button
+                onClick={() => onDismiss(item.id)}
+                className="p-0.5 rounded text-dark-500 hover:text-dark-300 transition-colors"
+              >
+                <XMarkIcon className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+          {/* Logo + Sponsor Name */}
+          <div className="flex items-center gap-2 mb-2">
+            {item.logoUrl ? (
+              <SponsorLogo src={item.logoUrl} alt={item.sponsorName} size="sm" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500/50 to-purple-500/50 flex items-center justify-center">
+                <SparklesIcon className="w-4 h-4 text-white" />
+              </div>
+            )}
+            <span className="text-sm font-medium text-white truncate">{item.sponsorName}</span>
+          </div>
+
+          {/* Title */}
+          <p className="text-sm text-dark-200 mb-2 line-clamp-2">{item.title}</p>
+
+          {/* Small image if available */}
+          {item.imageUrl && (
+            <div className="relative rounded-lg overflow-hidden mb-2 aspect-[2/1]">
+              <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+              {item.badge && (
+                <span className="absolute top-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-yellow-500 text-black">
+                  {item.badge}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* CTA */}
+          <Link
+            href={item.ctaUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 w-full py-2 rounded-lg bg-dark-700 hover:bg-dark-600 text-cyan-400 text-xs font-medium transition-colors"
+          >
+            {item.ctaText || 'Learn More'}
+            <ArrowTopRightOnSquareIcon className="w-3 h-3" />
+          </Link>
+        </div>
+      </Card>
+    );
+  }
+
   if (variant === 'card' || item.type === 'native') {
     return (
       <Card variant="default" padding="none" className="overflow-hidden relative">
-        {/* Sponsored label */}
-        <div className="absolute top-2 left-2 z-10">
-          <Badge variant="default" size="sm" className="bg-dark-800/80 backdrop-blur-sm">
-            <MegaphoneIcon className="w-3 h-3 mr-1" />
-            Sponsored
-          </Badge>
-        </div>
-
-        {/* Dismiss button */}
-        {onDismiss && (
-          <button
-            onClick={() => onDismiss(item.id)}
-            className="absolute top-2 right-2 z-10 p-1.5 rounded-full bg-dark-800/80 backdrop-blur-sm text-dark-400 hover:text-white hover:bg-dark-700 transition-colors"
-          >
-            <XMarkIcon className="w-4 h-4" />
-          </button>
-        )}
-
         <div className="p-4">
-          {/* Header */}
+          {/* Header with sponsor info and badge */}
           <div className="flex items-center gap-3 mb-3">
             {item.logoUrl ? (
-              <Avatar src={item.logoUrl} alt={item.sponsorName} size="md" />
+              <SponsorLogo src={item.logoUrl} alt={item.sponsorName} size="md" />
             ) : (
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center">
                 <SparklesIcon className="w-5 h-5 text-white" />
               </div>
             )}
-            <div>
-              <p className="font-semibold text-white">{item.sponsorName}</p>
-              <p className="text-xs text-dark-400">Promoted</p>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-white text-sm">{item.sponsorName}</p>
+              <p className="text-xs text-dark-500 flex items-center gap-1">
+                <MegaphoneIcon className="w-3 h-3" />
+                Sponsored
+              </p>
             </div>
+            {onDismiss && (
+              <button
+                onClick={() => onDismiss(item.id)}
+                className="p-1.5 rounded-full text-dark-400 hover:text-white hover:bg-dark-700 transition-colors"
+              >
+                <XMarkIcon className="w-4 h-4" />
+              </button>
+            )}
           </div>
 
           {/* Content */}
-          <p className="text-dark-200 mb-3">{item.title}</p>
-          {item.description && <p className="text-sm text-dark-400 mb-4">{item.description}</p>}
+          <p className="text-dark-200 text-sm mb-2">{item.title}</p>
+          {item.description && <p className="text-xs text-dark-400 mb-3 line-clamp-2">{item.description}</p>}
 
           {/* Image */}
           {item.imageUrl && (
-            <div className="relative aspect-video rounded-lg overflow-hidden mb-4">
+            <div className="relative aspect-video rounded-lg overflow-hidden mb-3">
               <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
               {item.badge && (
                 <div className="absolute top-2 right-2">
-                  <Badge variant="warning" className="font-bold">
+                  <Badge variant="warning" size="sm" className="font-bold">
                     {item.badge}
                   </Badge>
                 </div>
@@ -114,10 +186,12 @@ export function SponsoredContent({ item, onDismiss, variant = 'default' }: Spons
           {/* CTA */}
           <Link
             href={item.ctaUrl}
-            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-gradient-to-r from-cyan-500 to-purple-500 text-white font-medium hover:from-cyan-400 hover:to-purple-400 transition-all"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-purple-500 text-white text-sm font-medium hover:from-cyan-400 hover:to-purple-400 transition-all"
           >
             {item.ctaText || 'Learn More'}
-            <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+            <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
           </Link>
         </div>
       </Card>
@@ -156,7 +230,7 @@ export function SponsoredContent({ item, onDismiss, variant = 'default' }: Spons
             <GiftIcon className="w-6 h-6 text-white" />
           </div>
         ) : item.logoUrl ? (
-          <Avatar src={item.logoUrl} alt={item.sponsorName} size="lg" className="shrink-0" />
+          <SponsorLogo src={item.logoUrl} alt={item.sponsorName} size="lg" />
         ) : null}
 
         {/* Text */}

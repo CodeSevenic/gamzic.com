@@ -139,7 +139,7 @@ export default function OnboardingPage() {
           ...user,
           displayName: displayName.trim(),
           bio: bio.trim(),
-          gradeYear: gradeYear || undefined,
+          gradeYear: gradeYear || null,
           gameTags,
           schoolId: selectedSchool || undefined,
           isOnboarded: true,

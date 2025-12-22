@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
-import { ArrowLeftIcon, PhotoIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, PhotoIcon, XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
@@ -14,9 +14,21 @@ import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
-import { getMatch, updateMatch, getGames, updateMatchScores } from '@/lib/firebase/db';
+import { getMatch, updateMatch, getGames, updateMatchScores, addMatchEvent, updateMatchGameState, clearMatchEvents } from '@/lib/firebase/db';
 import { uploadMatchBanner } from '@/lib/firebase/storage';
-import { GAMES, type Match, type MatchType, type MatchStatus, type Game, type MatchParticipant } from '@/types';
+import { GAMES, type Match, type MatchType, type MatchStatus, type Game, type MatchParticipant, type MatchEvent, type MatchEventType } from '@/types';
+
+// Event type options for the dropdown
+const EVENT_TYPE_OPTIONS = [
+  { value: 'goal', label: '⚽ Goal' },
+  { value: 'assist', label: '🎯 Assist' },
+  { value: 'kill', label: '💀 Kill' },
+  { value: 'round_win', label: '🏆 Round Win' },
+  { value: 'point', label: '📍 Point' },
+  { value: 'save', label: '🧤 Save' },
+  { value: 'penalty', label: '🔴 Penalty' },
+  { value: 'other', label: '📌 Other' },
+];
 import { Timestamp } from 'firebase/firestore';
 
 const formatDateForInput = (date: Date): string => {
@@ -59,6 +71,7 @@ export default function EditMatchPage() {
   const [registrationDeadline, setRegistrationDeadline] = useState('');
   const [streamUrl, setStreamUrl] = useState('');
   const [isPublic, setIsPublic] = useState(true);
+  const [isFeatured, setIsFeatured] = useState(false);
   
   // New fields
   const [rules, setRules] = useState('');
@@ -70,6 +83,18 @@ export default function EditMatchPage() {
   // Scores
   const [scores, setScores] = useState<Record<string, string>>({});
   const [winnerId, setWinnerId] = useState('');
+  
+  // Match events / scoring log
+  const [events, setEvents] = useState<MatchEvent[]>([]);
+  const [currentRound, setCurrentRound] = useState('');
+  const [currentMap, setCurrentMap] = useState('');
+  
+  // New event form
+  const [newEventType, setNewEventType] = useState<MatchEventType>('goal');
+  const [newEventParticipant, setNewEventParticipant] = useState('');
+  const [newEventDescription, setNewEventDescription] = useState('');
+  const [newEventValue, setNewEventValue] = useState('1');
+  const [isAddingEvent, setIsAddingEvent] = useState(false);
 
   const predefinedOptions = ['2', '4', '6', '8', '10', '16', '20', '32', '50', '100'];
 
@@ -113,6 +138,7 @@ export default function EditMatchPage() {
         }
         setStreamUrl(fetchedMatch.streamUrl || '');
         setIsPublic(fetchedMatch.isPublic);
+        setIsFeatured(fetchedMatch.isFeatured || false);
         setRules(fetchedMatch.rules || '');
         setPrizeDescription(fetchedMatch.prizeDescription || '');
         setWinnerId(fetchedMatch.winnerId || '');
@@ -121,6 +147,11 @@ export default function EditMatchPage() {
           setExistingBanner(fetchedMatch.bannerImage);
           setBannerPreview(fetchedMatch.bannerImage);
         }
+        
+        // Load events and game state
+        setEvents(fetchedMatch.events || []);
+        setCurrentRound(fetchedMatch.currentRound?.toString() || '');
+        setCurrentMap(fetchedMatch.currentMap || '');
         
         // Initialize scores
         if (fetchedMatch.scores) {
@@ -208,6 +239,7 @@ export default function EditMatchPage() {
         isTeamMatch,
         maxParticipants: participantCount,
         isPublic,
+        isFeatured,
       };
 
       if (description.trim()) {
@@ -260,6 +292,84 @@ export default function EditMatchPage() {
   };
 
   const getParticipantId = (p: MatchParticipant) => p.oduserId || p.teamId || '';
+
+  // Add a new scoring event
+  const handleAddEvent = async () => {
+    if (!newEventParticipant || !match) return;
+    
+    const participant = match.participants.find(
+      p => getParticipantId(p) === newEventParticipant
+    );
+    if (!participant) return;
+    
+    setIsAddingEvent(true);
+    try {
+      await addMatchEvent(matchId, {
+        type: newEventType,
+        participantId: newEventParticipant,
+        participantName: participant.name,
+        description: newEventDescription.trim() || undefined,
+        value: parseInt(newEventValue) || 1,
+      });
+      
+      // Update local state
+      const newEvent: MatchEvent = {
+        id: `event-${Date.now()}`,
+        type: newEventType,
+        participantId: newEventParticipant,
+        participantName: participant.name,
+        description: newEventDescription.trim() || undefined,
+        value: parseInt(newEventValue) || 1,
+        timestamp: new Date(),
+      };
+      setEvents(prev => [...prev, newEvent]);
+      
+      // Auto-update score based on event value
+      const currentScore = parseInt(scores[newEventParticipant] || '0');
+      setScores(prev => ({
+        ...prev,
+        [newEventParticipant]: (currentScore + (parseInt(newEventValue) || 1)).toString(),
+      }));
+      
+      // Reset form
+      setNewEventDescription('');
+      setNewEventValue('1');
+      toast.success('Event added!');
+    } catch (error) {
+      toast.error('Failed to add event');
+      console.error(error);
+    } finally {
+      setIsAddingEvent(false);
+    }
+  };
+
+  // Update game state (round/map)
+  const handleUpdateGameState = async () => {
+    try {
+      await updateMatchGameState(matchId, {
+        currentRound: currentRound ? parseInt(currentRound) : undefined,
+        currentMap: currentMap.trim() || undefined,
+      });
+      toast.success('Game state updated!');
+    } catch (error) {
+      toast.error('Failed to update game state');
+      console.error(error);
+    }
+  };
+
+  // Clear all events
+  const handleClearEvents = async () => {
+    if (!confirm('Are you sure you want to clear all events? This cannot be undone.')) return;
+    
+    try {
+      await clearMatchEvents(matchId);
+      setEvents([]);
+      toast.success('Events cleared!');
+    } catch (error) {
+      toast.error('Failed to clear events');
+      console.error(error);
+    }
+  };
 
   if (isLoading) {
     return <PageLoader />;
@@ -495,6 +605,144 @@ export default function EditMatchPage() {
               </div>
             )}
 
+            {/* Live Scoring Events - Only show when in progress */}
+            {status === 'in_progress' && match?.participants && match.participants.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-white border-b border-dark-700 pb-2 flex items-center gap-2">
+                  🎮 Live Scoring Events
+                  <Badge variant="danger" size="sm">LIVE</Badge>
+                </h3>
+
+                {/* Game State (Round/Map) */}
+                <div className="p-4 bg-dark-700/50 rounded-lg space-y-4">
+                  <h4 className="font-medium text-white text-sm">Current Game State</h4>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <Input
+                      label="Current Round"
+                      type="number"
+                      placeholder="1"
+                      value={currentRound}
+                      onChange={(e) => setCurrentRound(e.target.value)}
+                    />
+                    <Input
+                      label="Current Map/Stage"
+                      placeholder="e.g., Dust II, Ascent"
+                      value={currentMap}
+                      onChange={(e) => setCurrentMap(e.target.value)}
+                    />
+                    <div className="flex items-end">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={handleUpdateGameState}
+                        className="w-full"
+                      >
+                        Update State
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Add New Event */}
+                <div className="p-4 bg-gradient-to-br from-cyan-500/10 to-purple-500/10 border border-cyan-500/20 rounded-lg space-y-4">
+                  <h4 className="font-medium text-white text-sm flex items-center gap-2">
+                    <PlusIcon className="w-4 h-4" />
+                    Add Scoring Event
+                  </h4>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Select
+                      label="Event Type"
+                      options={EVENT_TYPE_OPTIONS}
+                      value={newEventType}
+                      onChange={(e) => setNewEventType(e.target.value as MatchEventType)}
+                    />
+                    <Select
+                      label="Player/Team"
+                      options={[
+                        { value: '', label: 'Select participant...' },
+                        ...match.participants.map((p) => ({
+                          value: getParticipantId(p),
+                          label: p.name,
+                        })),
+                      ]}
+                      value={newEventParticipant}
+                      onChange={(e) => setNewEventParticipant(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <Input
+                      label="Points/Value"
+                      type="number"
+                      placeholder="1"
+                      value={newEventValue}
+                      onChange={(e) => setNewEventValue(e.target.value)}
+                    />
+                    <div className="md:col-span-2">
+                      <Input
+                        label="Description (optional)"
+                        placeholder="e.g., Header from corner, Ace clutch"
+                        value={newEventDescription}
+                        onChange={(e) => setNewEventDescription(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleAddEvent}
+                    isLoading={isAddingEvent}
+                    disabled={!newEventParticipant}
+                  >
+                    <PlusIcon className="w-4 h-4 mr-2" />
+                    Add Event
+                  </Button>
+                </div>
+
+                {/* Event History */}
+                {events.length > 0 && (
+                  <div className="p-4 bg-dark-700/50 rounded-lg space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium text-white text-sm">Event History ({events.length})</h4>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleClearEvents}
+                        className="text-red-400 hover:text-red-300"
+                      >
+                        <TrashIcon className="w-4 h-4 mr-1" />
+                        Clear All
+                      </Button>
+                    </div>
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {[...events].reverse().map((event, idx) => (
+                        <div
+                          key={event.id || idx}
+                          className="flex items-center gap-3 p-2 bg-dark-600/50 rounded-lg text-sm"
+                        >
+                          <span className="text-lg">
+                            {EVENT_TYPE_OPTIONS.find(o => o.value === event.type)?.label.split(' ')[0] || '📌'}
+                          </span>
+                          <div className="flex-1">
+                            <span className="text-cyan-400 font-medium">{event.participantName}</span>
+                            <span className="text-dark-400 mx-2">•</span>
+                            <span className="text-white">{event.description || event.type}</span>
+                            {event.value && event.value > 1 && (
+                              <span className="text-green-400 ml-2">(+{event.value})</span>
+                            )}
+                          </div>
+                          <span className="text-xs text-dark-500">
+                            {event.timestamp instanceof Date 
+                              ? format(event.timestamp, 'h:mm a')
+                              : 'Just now'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Rules & Prizes */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-white border-b border-dark-700 pb-2">
@@ -547,18 +795,32 @@ export default function EditMatchPage() {
               />
             </div>
 
-            {/* Visibility */}
-            <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                id="isPublic"
-                checked={isPublic}
-                onChange={(e) => setIsPublic(e.target.checked)}
-                className="w-5 h-5 rounded border-dark-600 bg-dark-700 text-cyan-500 focus:ring-cyan-500"
-              />
-              <label htmlFor="isPublic" className="text-dark-200">
-                Public match
-              </label>
+            {/* Visibility & Features */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="isPublic"
+                  checked={isPublic}
+                  onChange={(e) => setIsPublic(e.target.checked)}
+                  className="w-5 h-5 rounded border-dark-600 bg-dark-700 text-cyan-500 focus:ring-cyan-500"
+                />
+                <label htmlFor="isPublic" className="text-dark-200">
+                  Public match
+                </label>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="isFeatured"
+                  checked={isFeatured}
+                  onChange={(e) => setIsFeatured(e.target.checked)}
+                  className="w-5 h-5 rounded border-dark-600 bg-dark-700 text-yellow-500 focus:ring-yellow-500"
+                />
+                <label htmlFor="isFeatured" className="text-dark-200">
+                  ⭐ Feature on Feed (show prominently to all users)
+                </label>
+              </div>
             </div>
 
             <div className="flex justify-end gap-3 pt-4 border-t border-dark-700">
